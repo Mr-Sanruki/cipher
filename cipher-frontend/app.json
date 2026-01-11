@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Cipher",
+    "slug": "cipher",
+    "scheme": "cipher",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24
+          }
+        }
+      ]
+    ],
+    "web": {
+      "bundler": "metro"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.rutikesh.cipher",
+      "adaptiveIcon": {},
+      "usesCleartextTraffic": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "a8db07ab-bf7a-4b8f-800c-1370918e24eb"
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+diff --git a/node_modules/@react-native-community/cli-server-api/build/statusPageMiddleware.js b/node_modules/@react-native-community/cli-server-api/build/statusPageMiddleware.js
+index 56a3c57..d7dd7c9 100644
+--- a/node_modules/@react-native-community/cli-server-api/build/statusPageMiddleware.js
++++ b/node_modules/@react-native-community/cli-server-api/build/statusPageMiddleware.js
+@@ -16,7 +16,9 @@ exports.default = statusPageMiddleware;
+  * running on 8081 and not another program / service.
+  */
+ function statusPageMiddleware(_req, res) {
+-  res.setHeader('X-React-Native-Project-Root', process.cwd());
++  try {
++    res.setHeader('X-React-Native-Project-Root', process.cwd());
++  } catch (_error) {}
+   res.end('packager-status:running');
+ }
+ 
