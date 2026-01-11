@@ -13,11 +13,16 @@ let transporter: nodemailer.Transporter | null = null;
 function getTransporter(): nodemailer.Transporter {
   if (transporter) return transporter;
 
+  const secure = env.SMTP_PORT === 465;
+
   transporter = nodemailer.createTransport({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
-    secure: false,
+    secure,
     auth: env.SMTP_USER && env.SMTP_PASS ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
   });
 
   return transporter;
