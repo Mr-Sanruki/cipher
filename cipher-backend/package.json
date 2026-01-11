@@ -29,6 +29,7 @@
     "mongoose": "^8.20.4",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
+    "cloudinary": "^2.5.1",
     "nodemailer": "^7.0.11",
     "openai": "^4.28.0",
     "socket.io": "^4.7.0",

@@ -1,6 +1,4 @@
 import http from "http";
-import fs from "fs";
-import path from "path";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
@@ -40,16 +38,6 @@ async function start(): Promise<void> {
   app.options("*", cors({ origin: corsOrigin(), credentials: false }));
   app.use(express.json({ limit: "5mb" }));
   app.use(morgan("combined"));
-
-  const uploadsDir = path.join(process.cwd(), "uploads");
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  app.use(
-    "/uploads",
-    express.static(uploadsDir, {
-      fallthrough: false,
-      maxAge: env.NODE_ENV === "production" ? "7d" : 0,
-    })
-  );
 
   app.get("/health", (_req, res) => {
     res.json({
