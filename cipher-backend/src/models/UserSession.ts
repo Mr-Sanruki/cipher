@@ -19,4 +19,6 @@ export type UserSessionDoc = InferSchemaType<typeof userSessionSchema> & {
   _id: mongoose.Types.ObjectId;
 };
 
-export const UserSession = mongoose.models.UserSession ?? mongoose.model("UserSession", userSessionSchema);
+export const UserSession =
+  (mongoose.models.UserSession as mongoose.Model<UserSessionDoc> | undefined) ??
+  mongoose.model<UserSessionDoc>("UserSession", userSessionSchema);

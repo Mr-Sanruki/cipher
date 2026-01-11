@@ -4,7 +4,7 @@ import { z } from "zod";
 import { env } from "../config/env";
 import { EmailOtp } from "../models/EmailOtp";
 import { User } from "../models/User";
-import { UserSession } from "../models/UserSession";
+import { type UserSessionDoc, UserSession } from "../models/UserSession";
 import { sendOtpEmail } from "../services/emailService";
 import { HttpError } from "../middleware/errorHandler";
 import { generateOtpCode } from "../utils/generators";
@@ -184,12 +184,12 @@ export async function refresh(req: Request, res: Response, next: NextFunction): 
       throw new HttpError(401, "Invalid token");
     }
 
-    const session = await UserSession.findOne({ _id: payload.sid, userId: payload.sub }).lean();
+    const session = await UserSession.findOne({ _id: payload.sid, userId: payload.sub }).lean<UserSessionDoc>();
     if (!session || session.revokedAt) {
       throw new HttpError(401, "Session expired");
     }
 
-    await UserSession.updateOne({ _id: payload.sid }, { $set: { lastUsedAt: new Date() } }).lean();
+    await UserSession.updateOne({ _id: payload.sid }, { $set: { lastUsedAt: new Date() } });
 
     const nextToken = signAccessToken(payload.sub, payload.sid);
 

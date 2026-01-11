@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { HttpError } from "./errorHandler";
 import { verifyAccessToken } from "../utils/jwt";
-import { UserSession } from "../models/UserSession";
+import { type UserSessionDoc, UserSession } from "../models/UserSession";
 
  declare global {
    namespace Express {
@@ -33,12 +33,12 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
       req.userId = payload.sub;
       req.sessionId = payload.sid;
 
-      const session = await UserSession.findOne({ _id: payload.sid, userId: payload.sub }).lean();
+      const session = await UserSession.findOne({ _id: payload.sid, userId: payload.sub }).lean<UserSessionDoc>();
       if (!session || session.revokedAt) {
         throw new HttpError(401, "Session expired");
       }
 
-      await UserSession.updateOne({ _id: payload.sid }, { $set: { lastUsedAt: new Date() } }).lean();
+      await UserSession.updateOne({ _id: payload.sid }, { $set: { lastUsedAt: new Date() } });
 
       next();
     } catch (error) {
