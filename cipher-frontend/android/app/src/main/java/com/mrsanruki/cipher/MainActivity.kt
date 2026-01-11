@@ -1,4 +1,4 @@
-package com.rutikesh.cipher
+package com.mrsanruki.cipher
 
 import android.os.Build
 import android.os.Bundle

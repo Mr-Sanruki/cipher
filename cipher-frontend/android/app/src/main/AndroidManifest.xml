@@ -26,7 +26,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="cipher"/>
-        <data android:scheme="com.rutikesh.cipher"/>
+        <data android:scheme="com.mrsanruki.cipher"/>
         <data android:scheme="exp+cipher"/>
       </intent-filter>
     </activity>

@@ -109,9 +109,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.rutikesh.cipher'
+    namespace 'com.mrsanruki.cipher'
     defaultConfig {
-        applicationId 'com.rutikesh.cipher'
+        applicationId 'com.mrsanruki.cipher'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
