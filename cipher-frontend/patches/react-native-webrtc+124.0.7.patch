@@ -1,0 +1,161 @@
+diff --git a/node_modules/react-native-webrtc/src/MediaDevices.ts b/node_modules/react-native-webrtc/src/MediaDevices.ts
+index c647667..13cfdc1 100644
+--- a/node_modules/react-native-webrtc/src/MediaDevices.ts
++++ b/node_modules/react-native-webrtc/src/MediaDevices.ts
+@@ -1,4 +1,4 @@
+-import { EventTarget, Event, defineEventAttribute } from 'event-target-shim/index';
++import { EventTarget, Event, defineEventAttribute } from 'event-target-shim/es5';
+ import { NativeModules } from 'react-native';
+ 
+ import getDisplayMedia from './getDisplayMedia';
+@@ -51,3 +51,4 @@ defineEventAttribute(proto, 'devicechange');
+ 
+ 
+ export default new MediaDevices();
++
+diff --git a/node_modules/react-native-webrtc/src/MediaStream.ts b/node_modules/react-native-webrtc/src/MediaStream.ts
+index 1c2437e..b27dbc8 100644
+--- a/node_modules/react-native-webrtc/src/MediaStream.ts
++++ b/node_modules/react-native-webrtc/src/MediaStream.ts
+@@ -1,4 +1,4 @@
+-import { EventTarget, defineEventAttribute } from 'event-target-shim/index';
++import { EventTarget, defineEventAttribute } from 'event-target-shim/es5';
+ import { NativeModules } from 'react-native';
+ 
+ import MediaStreamTrack, { MediaStreamTrackInfo } from './MediaStreamTrack';
+@@ -159,3 +159,4 @@ const proto = MediaStream.prototype;
+ 
+ defineEventAttribute(proto, 'addtrack');
+ defineEventAttribute(proto, 'removetrack');
++
+diff --git a/node_modules/react-native-webrtc/src/MediaStreamTrack.ts b/node_modules/react-native-webrtc/src/MediaStreamTrack.ts
+index f0d52e1..bbf0301 100644
+--- a/node_modules/react-native-webrtc/src/MediaStreamTrack.ts
++++ b/node_modules/react-native-webrtc/src/MediaStreamTrack.ts
+@@ -1,4 +1,4 @@
+-import { EventTarget, Event, defineEventAttribute } from 'event-target-shim/index';
++import { EventTarget, Event, defineEventAttribute } from 'event-target-shim/es5';
+ import { NativeModules } from 'react-native';
+ 
+ import { MediaTrackConstraints } from './Constraints';
+@@ -239,3 +239,4 @@ const proto = MediaStreamTrack.prototype;
+ defineEventAttribute(proto, 'ended');
+ defineEventAttribute(proto, 'mute');
+ defineEventAttribute(proto, 'unmute');
++
+diff --git a/node_modules/react-native-webrtc/src/MediaStreamTrackEvent.ts b/node_modules/react-native-webrtc/src/MediaStreamTrackEvent.ts
+index 501de5a..6fee345 100644
+--- a/node_modules/react-native-webrtc/src/MediaStreamTrackEvent.ts
++++ b/node_modules/react-native-webrtc/src/MediaStreamTrackEvent.ts
+@@ -1,4 +1,4 @@
+-import { Event } from 'event-target-shim/index';
++import { Event } from 'event-target-shim/es5';
+ 
+ import type MediaStreamTrack from './MediaStreamTrack';
+ 
+@@ -23,3 +23,4 @@ export default class MediaStreamTrackEvent<TEventType extends MEDIA_STREAM_EVENT
+         this.track = eventInitDict.track;
+     }
+ }
++
+diff --git a/node_modules/react-native-webrtc/src/MessageEvent.ts b/node_modules/react-native-webrtc/src/MessageEvent.ts
+index 5f6dcf9..7ffa82b 100644
+--- a/node_modules/react-native-webrtc/src/MessageEvent.ts
++++ b/node_modules/react-native-webrtc/src/MessageEvent.ts
+@@ -1,4 +1,4 @@
+-import { Event } from 'event-target-shim/index';
++import { Event } from 'event-target-shim/es5';
+ 
+ export type MessageEventData = string | ArrayBuffer | Blob;
+ 
+@@ -24,3 +24,4 @@ export default class MessageEvent<TEventType extends MESSAGE_EVENTS> extends Eve
+         this.data = eventInitDict.data;
+     }
+ }
++
+diff --git a/node_modules/react-native-webrtc/src/RTCDataChannel.ts b/node_modules/react-native-webrtc/src/RTCDataChannel.ts
+index a99ed1e..e0a925f 100644
+--- a/node_modules/react-native-webrtc/src/RTCDataChannel.ts
++++ b/node_modules/react-native-webrtc/src/RTCDataChannel.ts
+@@ -1,5 +1,5 @@
+ import * as base64 from 'base64-js';
+-import { EventTarget, defineEventAttribute } from 'event-target-shim/index';
++import { EventTarget, defineEventAttribute } from 'event-target-shim/es5';
+ import { NativeModules } from 'react-native';
+ 
+ import { addListener, removeListener } from './EventEmitter';
+@@ -188,3 +188,4 @@ defineEventAttribute(proto, 'closing');
+ defineEventAttribute(proto, 'error');
+ defineEventAttribute(proto, 'message');
+ defineEventAttribute(proto, 'open');
++
+diff --git a/node_modules/react-native-webrtc/src/RTCDataChannelEvent.ts b/node_modules/react-native-webrtc/src/RTCDataChannelEvent.ts
+index 956d059..d3539d9 100644
+--- a/node_modules/react-native-webrtc/src/RTCDataChannelEvent.ts
++++ b/node_modules/react-native-webrtc/src/RTCDataChannelEvent.ts
+@@ -1,4 +1,4 @@
+-import { Event } from 'event-target-shim/index';
++import { Event } from 'event-target-shim/es5';
+ 
+ import type RTCDataChannel from './RTCDataChannel';
+ 
+@@ -26,3 +26,4 @@ TEventType extends DATA_CHANNEL_EVENTS
+         this.channel = eventInitDict.channel;
+     }
+ }
++
+diff --git a/node_modules/react-native-webrtc/src/RTCErrorEvent.ts b/node_modules/react-native-webrtc/src/RTCErrorEvent.ts
+index 6a0a286..d54266f 100644
+--- a/node_modules/react-native-webrtc/src/RTCErrorEvent.ts
++++ b/node_modules/react-native-webrtc/src/RTCErrorEvent.ts
+@@ -1,4 +1,4 @@
+-import { Event } from 'event-target-shim/index';
++import { Event } from 'event-target-shim/es5';
+ 
+ type RTCPeerConnectionErrorFunc =
+     | 'addTransceiver'
+diff --git a/node_modules/react-native-webrtc/src/RTCIceCandidateEvent.ts b/node_modules/react-native-webrtc/src/RTCIceCandidateEvent.ts
+index af4d11a..2841099 100644
+--- a/node_modules/react-native-webrtc/src/RTCIceCandidateEvent.ts
++++ b/node_modules/react-native-webrtc/src/RTCIceCandidateEvent.ts
+@@ -1,4 +1,4 @@
+-import { Event } from 'event-target-shim/index';
++import { Event } from 'event-target-shim/es5';
+ 
+ import type RTCIceCandidate from './RTCIceCandidate';
+ 
+@@ -24,3 +24,4 @@ export default class RTCIceCandidateEvent<TEventType extends RTC_ICECANDIDATE_EV
+         this.candidate = eventInitDict?.candidate ?? null;
+     }
+ }
++
+diff --git a/node_modules/react-native-webrtc/src/RTCPeerConnection.ts b/node_modules/react-native-webrtc/src/RTCPeerConnection.ts
+index 9cfe1a5..b47d19d 100644
+--- a/node_modules/react-native-webrtc/src/RTCPeerConnection.ts
++++ b/node_modules/react-native-webrtc/src/RTCPeerConnection.ts
+@@ -1,4 +1,4 @@
+-import { EventTarget, Event, defineEventAttribute } from 'event-target-shim/index';
++import { EventTarget, Event, defineEventAttribute } from 'event-target-shim/es5';
+ import { NativeModules } from 'react-native';
+ 
+ import { addListener, removeListener } from './EventEmitter';
+@@ -830,3 +830,4 @@ defineEventAttribute(proto, 'signalingstatechange');
+ defineEventAttribute(proto, 'datachannel');
+ defineEventAttribute(proto, 'track');
+ defineEventAttribute(proto, 'error');
++
+diff --git a/node_modules/react-native-webrtc/src/RTCTrackEvent.ts b/node_modules/react-native-webrtc/src/RTCTrackEvent.ts
+index ea9bea4..95d05b6 100644
+--- a/node_modules/react-native-webrtc/src/RTCTrackEvent.ts
++++ b/node_modules/react-native-webrtc/src/RTCTrackEvent.ts
+@@ -1,4 +1,4 @@
+-import { Event } from 'event-target-shim/index';
++import { Event } from 'event-target-shim/es5';
+ 
+ import MediaStream from './MediaStream';
+ import type MediaStreamTrack from './MediaStreamTrack';
+@@ -40,3 +40,4 @@ export default class RTCTrackEvent<TEventType extends TRACK_EVENTS> extends Even
+         this.track = eventInitDict.transceiver.receiver ? eventInitDict.transceiver.receiver.track : null;
+     }
+ }
++
