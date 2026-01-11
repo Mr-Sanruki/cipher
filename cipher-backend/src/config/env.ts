@@ -8,12 +8,14 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default("*"),
   JWT_SECRET: z.string().min(1),
   JWT_EXPIRES_IN: z.string().min(1).default("7d"),
-  EMAIL_PROVIDER: z.enum(["console", "smtp"]).default("console"),
+  EMAIL_PROVIDER: z.enum(["console", "smtp", "brevo"]).default("console"),
   SMTP_HOST: z.string().optional().default(""),
   SMTP_PORT: z.coerce.number().int().positive().optional().default(587),
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASS: z.string().optional().default(""),
   SMTP_FROM: z.string().optional().default(""),
+  BREVO_API_KEY: z.string().optional().default(""),
+  BREVO_BASE_URL: z.string().optional().default("https://api.brevo.com"),
   OPENAI_API_KEY: z.string().optional().default(""),
   GROK_API_KEY: z.string().optional().default(""),
   GROK_BASE_URL: z.string().optional().default(""),
@@ -46,6 +48,16 @@ function parseEnv(): Env {
 
     if (missing.length > 0) {
       throw new Error(`Missing SMTP configuration: ${missing.join(", ")}`);
+    }
+  }
+
+  if (env.EMAIL_PROVIDER === "brevo") {
+    const missing: string[] = [];
+    if (!env.BREVO_API_KEY) missing.push("BREVO_API_KEY");
+    if (!env.SMTP_FROM) missing.push("SMTP_FROM");
+
+    if (missing.length > 0) {
+      throw new Error(`Missing Brevo configuration: ${missing.join(", ")}`);
     }
   }
 
