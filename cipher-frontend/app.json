@@ -24,7 +24,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.rutikesh.cipher",
+      "package": "com.mrsanruki.cipher",
       "adaptiveIcon": {},
       "usesCleartextTraffic": true
     },
