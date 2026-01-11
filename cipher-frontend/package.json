@@ -41,6 +41,7 @@
     "react-native-screens": "~3.31.1",
     "react-native-web": "~0.19.10",
     "react-native-webrtc": "^124.0.3",
+    "event-target-shim": "^6.0.2",
     "socket.io-client": "^4.7.0",
     "stream-chat": "^8.55.0",
     "stream-chat-react": "^12.12.0",
