@@ -5,6 +5,8 @@ import { Platform } from "react-native";
 
 let unauthorizedHandler: (() => void) | null = null;
 
+const DEFAULT_API_URL = "https://cipher-backend-4yns.onrender.com";
+
 export function setUnauthorizedHandler(handler: (() => void) | null): void {
   unauthorizedHandler = handler;
 }
@@ -12,8 +14,7 @@ export function setUnauthorizedHandler(handler: (() => void) | null): void {
 function resolveApiBaseUrl(): string | null {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
   const legacy = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-  const raw = apiUrl || legacy;
-  if (!raw) return null;
+  const raw = apiUrl || legacy || DEFAULT_API_URL;
   const normalized = raw.replace(/\/+$/, "");
 
   if (Platform.OS === "web") {

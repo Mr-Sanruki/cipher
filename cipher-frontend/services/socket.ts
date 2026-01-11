@@ -87,12 +87,14 @@ export type CipherSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 let socket: CipherSocket | null = null;
 let activeToken: string | null = null;
 
+const DEFAULT_SOCKET_URL = "https://cipher-backend-4yns.onrender.com";
+
 function resolveSocketUrl(): string | null {
   const url =
     process.env.EXPO_PUBLIC_SOCKET_URL?.trim() ||
     process.env.EXPO_PUBLIC_API_URL?.trim() ||
-    process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-  if (!url) return null;
+    process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
+    DEFAULT_SOCKET_URL;
   if (Platform.OS === "web") {
     return url.replace(/^(https?:\/\/)\d{1,3}(?:\.\d{1,3}){3}:(\d+)$/i, "$1localhost:$2");
   }

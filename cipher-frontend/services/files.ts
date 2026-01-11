@@ -3,6 +3,8 @@ import api from "./api";
 import { getToken } from "./auth";
 import * as FileSystem from "expo-file-system";
 
+const DEFAULT_API_URL = "https://cipher-backend-4yns.onrender.com";
+
 export type UploadedFileDto = {
   id: string;
   url: string;
@@ -32,10 +34,11 @@ export async function uploadFile(input: UploadInput): Promise<UploadedFileDto> {
       throw new Error("Not authenticated");
     }
 
-    const baseURL = (process.env.EXPO_PUBLIC_API_URL?.trim() || process.env.EXPO_PUBLIC_API_BASE_URL?.trim() || "").replace(/\/+$/, "");
-    if (!baseURL) {
-      throw new Error("Missing API base URL");
-    }
+    const baseURL = (
+      process.env.EXPO_PUBLIC_API_URL?.trim() ||
+      process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
+      DEFAULT_API_URL
+    ).replace(/\/+$/, "");
 
     const url = `${baseURL.replace(/\/+$/, "")}/api/files/upload`;
 
