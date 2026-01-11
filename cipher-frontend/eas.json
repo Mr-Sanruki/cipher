@@ -18,7 +18,9 @@
     },
     "production": {
       "env": {
-        "NODE_ENV": "production"
+        "NODE_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://cipher-backend-4yns.onrender.com",
+        "EXPO_PUBLIC_SOCKET_URL": "https://cipher-backend-4yns.onrender.com"
       },
       "android": {
         "buildType": "apk"
