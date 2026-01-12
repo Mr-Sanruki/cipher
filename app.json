@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "a8db07ab-bf7a-4b8f-800c-1370918e24eb"
+      }
+    },
+    "android": {
+      "package": "com.mrsanruki.cipher"
+    }
+  }
+}
