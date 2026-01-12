@@ -3,6 +3,7 @@ const { resolve } = require("metro-resolver");
 const { getDefaultConfig } = require("expo/metro-config");
 
 const baseConfig = getDefaultConfig(__dirname);
+const eventTargetShimEs5 = require.resolve("event-target-shim/es5");
 
 let withNativewind = null;
 try {
@@ -41,6 +42,18 @@ const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === "react") {
     return resolve(context, path.resolve(__dirname, "node_modules/react"), platform);
+  }
+
+  if (
+    moduleName === "event-target-shim" ||
+    moduleName === "event-target-shim/index" ||
+    moduleName === "event-target-shim/index.js" ||
+    moduleName === "event-target-shim/index.mjs"
+  ) {
+    return {
+      type: "sourceFile",
+      filePath: eventTargetShimEs5,
+    };
   }
 
   if (moduleName === "react/jsx-runtime") {
