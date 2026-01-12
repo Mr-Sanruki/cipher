@@ -1,0 +1,30 @@
+diff --git a/node_modules/event-target-shim/es5.js b/node_modules/event-target-shim/es5.js
+index 22b43bf..22b43bf 100644
+--- a/node_modules/event-target-shim/es5.js
++++ b/node_modules/event-target-shim/es5.js
+@@ -1236,9 +1236,7 @@ var EventTarget = /*#__PURE__*/function () {
+   /**
+    * Initialize this instance.
+    */
+   function EventTarget() {
+-    _classCallCheck__default['default'](this, EventTarget);
+-
+     internalDataMap$2.set(this, createListenerListMap());
+   } // Implementation
+ 
+ 
+diff --git a/node_modules/event-target-shim/es5.mjs b/node_modules/event-target-shim/es5.mjs
+index 6e0a0c4..6e0a0c4 100644
+--- a/node_modules/event-target-shim/es5.mjs
++++ b/node_modules/event-target-shim/es5.mjs
+@@ -1218,9 +1218,7 @@ var EventTarget = /*#__PURE__*/function () {
+   /**
+    * Initialize this instance.
+    */
+   function EventTarget() {
+-    _classCallCheck(this, EventTarget);
+-
+     internalDataMap$2.set(this, createListenerListMap());
+   } // Implementation
+ 
+ 
