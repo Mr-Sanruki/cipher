@@ -24,6 +24,7 @@ export type ServerToClientEvents = {
   "receive-dm-message": (payload: { message: DmMessageDto }) => void;
   "message-edited": (payload: { messageId: string; text: string }) => void;
   "message-deleted": (payload: { messageId: string }) => void;
+  "dm-message-deleted": (payload: { dmId: string; messageId: string }) => void;
   "user-typing": (payload: { userId: string }) => void;
   "user-stopped-typing": (payload: { userId: string }) => void;
   "message-read": (payload: { messageId: string; user?: { _id: string; name: string; avatarUrl?: string } }) => void;

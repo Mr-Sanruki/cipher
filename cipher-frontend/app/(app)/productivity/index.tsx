@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../../utils/colors";
@@ -15,6 +15,14 @@ type Card = {
 };
 
 export default function ProductivityHome(): JSX.Element {
+  const { width: screenW } = useWindowDimensions();
+  const gutter = 12;
+  const horizontalPadding = 16;
+  const cardW = useMemo(() => {
+    const w = Math.floor((screenW - horizontalPadding * 2 - gutter) / 2);
+    return Math.max(140, w);
+  }, [screenW]);
+
   const cards = useMemo<Card[]>(
     () => [
       {
@@ -90,7 +98,7 @@ export default function ProductivityHome(): JSX.Element {
             <Pressable
               onPress={() => router.push(c.href as any)}
               style={({ pressed }) => ({
-                flex: 1,
+                width: cardW,
                 borderRadius: 18,
                 padding: 14,
                 minHeight: 150,

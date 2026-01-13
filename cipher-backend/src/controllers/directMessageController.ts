@@ -440,15 +440,33 @@ export async function deleteDirectMessageContent(req: AuthenticatedRequest, res:
       throw new HttpError(403, "You can only delete your own messages");
     }
 
-    (content as any).deletedAt = new Date();
-    await content.save();
+    const dmId = String((content as any).dmId);
+    const isRoot = !(content as any).threadRootId;
 
-    const sender = await User.findById(req.userId).lean();
-    const dto = await toDmContentDto(content, sender);
+    if (isRoot) {
+      const replyIds = await DirectMessageContent.find({ dmId: (content as any).dmId, threadRootId: (content as any)._id }).distinct("_id");
+      await Promise.all([
+        replyIds.length > 0 ? DirectMessageContent.deleteMany({ _id: { $in: replyIds } }) : Promise.resolve(),
+        DirectMessageContent.deleteOne({ _id: (content as any)._id }),
+      ]);
+
+      const participantIds = (dm.participants as any[]).map((p) => String(p.userId));
+      for (const pid of participantIds) {
+        for (const rid of replyIds) {
+          getIo().to(`dm:${pid}`).emit("dm-message-deleted", { dmId, messageId: String(rid) });
+        }
+        getIo().to(`dm:${pid}`).emit("dm-message-deleted", { dmId, messageId: String((content as any)._id) });
+      }
+
+      res.status(204).send();
+      return;
+    }
+
+    await DirectMessageContent.deleteOne({ _id: (content as any)._id });
 
     const participantIds = (dm.participants as any[]).map((p) => String(p.userId));
     for (const pid of participantIds) {
-      getIo().to(`dm:${pid}`).emit("receive-dm-message", { message: dto });
+      getIo().to(`dm:${pid}`).emit("dm-message-deleted", { dmId, messageId: String((content as any)._id) });
     }
 
     res.status(204).send();

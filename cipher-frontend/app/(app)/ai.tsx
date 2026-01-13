@@ -1145,9 +1145,6 @@ export default function AiScreen(): JSX.Element {
                     ? `${pendingAttachments.length} attachment(s) ready`
                     : ""}
             </Text>
-            <Text style={{ color: promptOverLimit ? "rgba(220,38,38,0.95)" : "rgba(255,255,255,0.6)", fontSize: 12 }}>
-              {promptLen}/{MAX_PROMPT_CHARS}
-            </Text>
           </View>
         </View>
 

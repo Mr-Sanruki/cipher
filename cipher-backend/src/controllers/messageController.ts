@@ -311,14 +311,28 @@ export async function deleteMessage(
       throw new HttpError(403, "You can only delete your own messages");
     }
 
-    message.deletedAt = new Date();
-    await message.save();
+    const channelId = String(message.channelId);
 
-    getIo()
-      .to(String(message.channelId))
-      .emit("message-deleted", { messageId: String(message._id) });
+    // If deleting a root message, also delete its replies.
+    const isRoot = !(message as any).threadRootId;
+    if (isRoot) {
+      const replyIds = await Message.find({ channelId: message.channelId, threadRootId: message._id }).distinct("_id");
+      await Promise.all([
+        replyIds.length > 0 ? Message.deleteMany({ _id: { $in: replyIds } }) : Promise.resolve(),
+        Message.deleteOne({ _id: message._id }),
+      ]);
 
-    res.json({ message: "Message deleted" });
+      for (const rid of replyIds) {
+        getIo().to(channelId).emit("message-deleted", { messageId: String(rid) });
+      }
+      getIo().to(channelId).emit("message-deleted", { messageId: String(message._id) });
+      res.status(204).send();
+      return;
+    }
+
+    await Message.deleteOne({ _id: message._id });
+    getIo().to(channelId).emit("message-deleted", { messageId: String(message._id) });
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

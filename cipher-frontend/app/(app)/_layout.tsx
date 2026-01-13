@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useMemo, useRef } from "react";
 import { Tabs, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Animated, Pressable, View } from "react-native";
@@ -9,46 +9,21 @@ import { StreamChatProvider } from "../../context/StreamChatContext";
 import { CallProvider } from "../../context/CallContext";
 
 function PremiumTabIcon({ name, focused, color, size }: { name: any; focused: boolean; color: string; size?: number }): JSX.Element {
-  const active = useRef(new Animated.Value(focused ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.timing(active, {
-      toValue: focused ? 1 : 0,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
-  }, [active, focused]);
-
-  const plateScale = active.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] });
-  const plateOpacity = active.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
-  const activeIconOpacity = active;
-  const inactiveIconOpacity = active.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
-  const iconScale = active.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] });
-
   return (
     <View style={{ width: 42, height: 30, alignItems: "center", justifyContent: "center" }}>
-      <Animated.View
+      <View
         pointerEvents="none"
         style={{
           position: "absolute",
           width: 36,
           height: 28,
           borderRadius: 14,
-          backgroundColor: "rgba(120,140,255,0.18)",
+          backgroundColor: focused ? "rgba(120,140,255,0.18)" : "rgba(255,255,255,0.04)",
           borderWidth: 1,
-          borderColor: "rgba(120,140,255,0.28)",
-          opacity: plateOpacity,
-          transform: [{ scale: plateScale }],
+          borderColor: focused ? "rgba(120,140,255,0.28)" : "rgba(255,255,255,0.08)",
         }}
       />
-      <Animated.View style={{ transform: [{ scale: iconScale }] }}>
-        <Animated.View style={{ position: "absolute", opacity: inactiveIconOpacity }}>
-          <Ionicons name={name} size={size ?? 22} color={color} />
-        </Animated.View>
-        <Animated.View style={{ opacity: activeIconOpacity }}>
-          <Ionicons name={name} size={size ?? 22} color="white" />
-        </Animated.View>
-      </Animated.View>
+      <Ionicons name={name} size={size ?? 22} color={focused ? "white" : color} />
     </View>
   );
 }

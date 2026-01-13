@@ -4,6 +4,7 @@ import { validateBody } from "../middleware/validation";
 import {
   createWorkspace,
   createWorkspaceBodySchema,
+  deleteWorkspace,
   generateCode,
   joinWorkspace,
   joinWorkspaceBodySchema,
@@ -22,6 +23,7 @@ router.post("/", requireAuth, validateBody(createWorkspaceBodySchema), createWor
 router.get("/", requireAuth, listWorkspaces);
 router.post("/join", requireAuth, validateBody(joinWorkspaceBodySchema), joinWorkspace);
 router.put("/:workspaceId", requireAuth, validateBody(updateWorkspaceBodySchema), updateWorkspace);
+router.delete("/:workspaceId", requireAuth, deleteWorkspace);
 router.get("/:workspaceId/members", requireAuth, listMembers);
 router.put(
   "/:workspaceId/members/:userId/role",

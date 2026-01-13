@@ -126,7 +126,7 @@ export default function DmChatScreen(): JSX.Element {
   const [pendingAttachments, setPendingAttachments] = useState<
     { key: string; uri: string; name: string; mimeType: string; kind: "image" | "document" }[]
   >([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
   const [pollOpen, setPollOpen] = useState<boolean>(false);
   const [pollQuestion, setPollQuestion] = useState<string>("");
   const [pollOpt1, setPollOpt1] = useState<string>("");
@@ -385,24 +385,50 @@ export default function DmChatScreen(): JSX.Element {
       });
   }
 
-  const selectedMessage = useMemo(() => {
-    if (!selectedId) return null;
-    return messages.find((m) => m._id === selectedId) ?? null;
-  }, [messages, selectedId]);
+  const selectedCount = useMemo(() => Object.values(selectedIds).filter(Boolean).length, [selectedIds]);
 
-  const isSelectedMine = !!selectedMessage && !!myUserId && selectedMessage.sender?._id === myUserId;
+  const primarySelectedId = useMemo(() => {
+    const entry = Object.entries(selectedIds).find(([, v]) => !!v);
+    return entry ? entry[0] : null;
+  }, [selectedIds]);
+
+  const selectedMessage = useMemo(() => {
+    if (!primarySelectedId) return null;
+    return messages.find((m) => m._id === primarySelectedId) ?? null;
+  }, [messages, primarySelectedId]);
+
+  const selectedMessages = useMemo(() => {
+    const ids = new Set(Object.entries(selectedIds).filter(([, v]) => !!v).map(([k]) => k));
+    return messages.filter((m) => ids.has(m._id));
+  }, [messages, selectedIds]);
+
+  const isSingleSelected = selectedCount === 1;
+  const isSelectedMine = isSingleSelected && !!selectedMessage && !!myUserId && selectedMessage.sender?._id === myUserId;
+  const areAllSelectedMine = useMemo(() => {
+    if (selectedCount < 1) return false;
+    if (!myUserId) return false;
+    return selectedMessages.every((m) => m.sender?._id === myUserId);
+  }, [myUserId, selectedCount, selectedMessages]);
 
   function clearSelection(): void {
-    setSelectedId(null);
+    setSelectedIds({});
     setIsEmojiOpen(false);
     setInfoOpen(false);
   }
 
+  function toggleSelected(id: string): void {
+    setSelectedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
   async function onCopySelected(): Promise<void> {
-    if (!selectedMessage?.text) return;
+    if (selectedCount < 1) return;
     try {
       if (Clipboard?.setStringAsync) {
-        await Clipboard.setStringAsync(selectedMessage.text);
+        const text = selectedMessages
+          .map((m) => String(m.text ?? "").trim())
+          .filter(Boolean)
+          .join("\n\n");
+        if (text) await Clipboard.setStringAsync(text);
       }
     } catch {
       // ignore
@@ -412,6 +438,7 @@ export default function DmChatScreen(): JSX.Element {
   }
 
   async function onReact(emoji: string): Promise<void> {
+    if (!isSingleSelected) return;
     if (!selectedMessage?._id) return;
     try {
       const reactions = await reactDmMessage({ messageId: selectedMessage._id, emoji });
@@ -427,6 +454,7 @@ export default function DmChatScreen(): JSX.Element {
   }
 
   async function onForwardSelected(): Promise<void> {
+    if (!isSingleSelected) return;
     if (!selectedMessage) return;
     try {
       const body = selectedMessage.deletedAt ? "(deleted)" : String(selectedMessage.text ?? "");
@@ -450,11 +478,12 @@ export default function DmChatScreen(): JSX.Element {
   }
 
   async function onDeleteSelected(): Promise<void> {
-    if (!selectedMessage?._id) return;
-    const id = selectedMessage._id;
+    if (selectedCount < 1) return;
+    if (!areAllSelectedMine) return;
+    const ids = selectedMessages.map((m) => m._id).filter(Boolean);
     try {
-      await deleteDmMessage(id);
-      setMessages((prev) => prev.filter((m) => m._id !== id));
+      await Promise.all(ids.map((id) => deleteDmMessage(id)));
+      setMessages((prev) => prev.filter((m) => !ids.includes(m._id)));
       invalidateChatLists();
     } catch (e: any) {
       setError(typeof e?.message === "string" ? e.message : "Failed to delete");
@@ -874,14 +903,30 @@ export default function DmChatScreen(): JSX.Element {
       scrollToBottom(true);
     };
 
+    const onDeleted = (payload: { dmId: string; messageId: string }) => {
+      const pid = String((payload as any)?.dmId ?? "");
+      const mid = String((payload as any)?.messageId ?? "");
+      if (!pid || !mid) return;
+      if (pid !== dmId) return;
+      setMessages((prev) => prev.filter((x) => x._id !== mid));
+      setSelectedIds((prev) => {
+        if (!prev[mid]) return prev;
+        const next = { ...prev };
+        delete next[mid];
+        return next;
+      });
+    };
+
     socket.on("receive-dm-message", onReceive as any);
+    socket.on("dm-message-deleted" as any, onDeleted as any);
     return () => {
       socket.off("receive-dm-message", onReceive as any);
+      socket.off("dm-message-deleted" as any, onDeleted as any);
       if (threadNoticeTimerRef.current) {
         clearTimeout(threadNoticeTimerRef.current);
       }
     };
-  }, [socket, dmId, threadOpen, threadRootId]);
+  }, [socket, dmId]);
 
   async function onSend(): Promise<void> {
     const trimmed = text.trim();
@@ -1565,24 +1610,33 @@ export default function DmChatScreen(): JSX.Element {
           justifyContent: "space-between",
         }}
       >
-        {selectedMessage ? (
+        {selectedCount > 0 ? (
           <>
-            <Pressable onPress={clearSelection} style={{ padding: 10 }}>
-              <Ionicons name="close" size={22} color={Colors.dark.textPrimary} />
-            </Pressable>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Pressable onPress={clearSelection} style={{ padding: 10 }}>
+                <Ionicons name="close" size={22} color={Colors.dark.textPrimary} />
+              </Pressable>
+              <Text style={{ color: Colors.dark.textPrimary, fontWeight: "900" }}>{selectedCount}</Text>
+            </View>
             <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-              <Pressable onPress={onReplySelected} style={{ padding: 8 }}>
-                <Ionicons name="return-up-back" size={20} color={Colors.dark.textPrimary} />
-              </Pressable>
-              <Pressable onPress={() => setIsEmojiOpen(true)} style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}>
-                <Ionicons name="happy-outline" size={20} color={Colors.dark.textPrimary} />
-              </Pressable>
+              {isSingleSelected ? (
+                <>
+                  <Pressable onPress={onReplySelected} style={{ padding: 8 }}>
+                    <Ionicons name="return-up-back" size={20} color={Colors.dark.textPrimary} />
+                  </Pressable>
+                  <Pressable onPress={() => setIsEmojiOpen(true)} style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}>
+                    <Ionicons name="happy-outline" size={20} color={Colors.dark.textPrimary} />
+                  </Pressable>
+                </>
+              ) : null}
               <Pressable onPress={() => void onCopySelected()} style={{ padding: 8 }}>
                 <Ionicons name="copy-outline" size={20} color={Colors.dark.textPrimary} />
               </Pressable>
-              <Pressable onPress={() => void onForwardSelected()} style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}>
-                <Ionicons name="arrow-redo-outline" size={20} color={Colors.dark.textPrimary} />
-              </Pressable>
+              {isSingleSelected ? (
+                <Pressable onPress={() => void onForwardSelected()} style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}>
+                  <Ionicons name="arrow-redo-outline" size={20} color={Colors.dark.textPrimary} />
+                </Pressable>
+              ) : null}
               {isSelectedMine ? (
                 <>
                   <Pressable onPress={onStartEditSelected} style={{ padding: 8 }}>
@@ -1593,9 +1647,11 @@ export default function DmChatScreen(): JSX.Element {
                   </Pressable>
                 </>
               ) : null}
-              <Pressable onPress={() => setInfoOpen(true)} style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}>
-                <Ionicons name="information-circle-outline" size={22} color={Colors.dark.textPrimary} />
-              </Pressable>
+              {isSingleSelected ? (
+                <Pressable onPress={() => setInfoOpen(true)} style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}>
+                  <Ionicons name="information-circle-outline" size={22} color={Colors.dark.textPrimary} />
+                </Pressable>
+              ) : null}
             </View>
           </>
         ) : (
@@ -1767,7 +1823,7 @@ export default function DmChatScreen(): JSX.Element {
           <FadeIn>
             {(() => {
               const isMine = !!myUserId && item.sender?._id === myUserId;
-              const isSelected = !!selectedId && selectedId === item._id;
+              const isSelected = !!selectedIds[item._id];
               return (
             <View
               style={{
@@ -1789,9 +1845,9 @@ export default function DmChatScreen(): JSX.Element {
               }}
             >
               <Pressable
-                onLongPress={() => setSelectedId(item._id)}
+                onLongPress={() => toggleSelected(item._id)}
                 onPress={() => {
-                  if (selectedId) clearSelection();
+                  if (selectedCount > 0) toggleSelected(item._id);
                 }}
                 style={{}}
               >

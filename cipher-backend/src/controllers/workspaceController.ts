@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { HttpError } from "../middleware/errorHandler";
 import { Channel } from "../models/Channel";
+import { DirectMessage } from "../models/DirectMessage";
+import { DirectMessageContent } from "../models/DirectMessageContent";
 import { Message } from "../models/Message";
 import { User } from "../models/User";
 import { Workspace } from "../models/Workspace";
@@ -175,6 +177,32 @@ export async function joinWorkspace(
     }
 
     res.json({ workspace: workspace.toJSON() });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteWorkspace(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const workspaceId = String(req.params.workspaceId);
+
+    const { workspace, role } = await requireWorkspaceMember({ userId: req.userId, workspaceId });
+    requireWorkspaceAdmin(role);
+
+    const channels = await Channel.find({ workspaceId: workspace._id }).select({ _id: 1 }).lean();
+    const channelIds = channels.map((c) => (c as any)._id).filter(Boolean);
+
+    const dmIds = await DirectMessage.find({ workspaceId: workspace._id }).distinct("_id");
+
+    await Promise.all([
+      channelIds.length > 0 ? Message.deleteMany({ channelId: { $in: channelIds } }) : Promise.resolve(),
+      channelIds.length > 0 ? Channel.deleteMany({ workspaceId: workspace._id }) : Promise.resolve(),
+      dmIds.length > 0 ? DirectMessageContent.deleteMany({ dmId: { $in: dmIds } }) : Promise.resolve(),
+      dmIds.length > 0 ? DirectMessage.deleteMany({ _id: { $in: dmIds } }) : Promise.resolve(),
+      Workspace.deleteOne({ _id: workspace._id }),
+    ]);
+
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

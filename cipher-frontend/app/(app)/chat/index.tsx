@@ -10,7 +10,7 @@ import { FadeIn } from "../../../components/FadeIn";
 import { Pop } from "../../../components/Pop";
 import { createChannel, listChannels } from "../../../services/channels";
 import { listMessages } from "../../../services/messages";
-import { getActiveWorkspaceId, setActiveWorkspaceId } from "../../../services/workspaceSelection";
+import { getActiveWorkspaceId, setActiveWorkspaceId, subscribeActiveWorkspaceId } from "../../../services/workspaceSelection";
 import { listWorkspaces } from "../../../services/workspaces";
 import { useSocket } from "../../../hooks/useSocket";
 import { getLastReadMap } from "../../../services/chatReadState";
@@ -115,6 +115,30 @@ export default function ChatHomeScreenNative(): JSX.Element {
       active = false;
     };
   }, [user?._id]);
+
+  useEffect(() => {
+    const unsub = subscribeActiveWorkspaceId((nextId) => {
+      setWorkspaceIdState((prev) => {
+        const p = prev ?? null;
+        const n = nextId ?? null;
+        if (p === n) return prev;
+        return n;
+      });
+
+      // Best-effort: update displayed name without blocking.
+      if (nextId) {
+        listWorkspaces()
+          .then((wss) => {
+            const ws = wss.find((w) => w._id === nextId);
+            if (ws?.name) setWorkspaceName(ws.name);
+          })
+          .catch(() => {
+            // ignore
+          });
+      }
+    });
+    return unsub;
+  }, []);
 
   const reloadLists = useCallback(async () => {
     if (!workspaceId) return;

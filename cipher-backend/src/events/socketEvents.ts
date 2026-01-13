@@ -404,10 +404,26 @@ export function registerSocketEvents(io: SocketIOServer): void {
 
         if (String(message.senderId) !== userId) throw new Error("Forbidden");
 
-        message.deletedAt = new Date();
-        await message.save();
+        const channelId = String(message.channelId);
 
-        io.to(String(message.channelId)).emit("message-deleted", { messageId });
+        const isRoot = !(message as any).threadRootId;
+        if (isRoot) {
+          const replyIds = await Message.find({ channelId: message.channelId, threadRootId: message._id }).distinct("_id");
+          await Promise.all([
+            replyIds.length > 0 ? Message.deleteMany({ _id: { $in: replyIds } }) : Promise.resolve(),
+            Message.deleteOne({ _id: message._id }),
+          ]);
+
+          for (const rid of replyIds) {
+            io.to(channelId).emit("message-deleted", { messageId: String(rid) });
+          }
+          io.to(channelId).emit("message-deleted", { messageId: String(message._id) });
+          ack?.({ ok: true });
+          return;
+        }
+
+        await Message.deleteOne({ _id: message._id });
+        io.to(channelId).emit("message-deleted", { messageId: String(message._id) });
         ack?.({ ok: true });
       } catch (error) {
         ack?.({ ok: false, message: errorMessage(error) });
