@@ -25,13 +25,6 @@ export default function ProductivityHome(): JSX.Element {
         href: "/(app)/productivity/tasks",
       },
       {
-        key: "compiler",
-        title: "Compiler",
-        subtitle: "Run code (JS now, Judge0 later)",
-        icon: "code-slash",
-        href: "/(app)/productivity/compiler",
-      },
-      {
         key: "email",
         title: "Email",
         subtitle: "Pick members, compose, send",
@@ -58,13 +51,6 @@ export default function ProductivityHome(): JSX.Element {
         subtitle: "Pomodoro 25/5 + charts",
         icon: "timer",
         href: "/(app)/productivity/focus-timer",
-      },
-      {
-        key: "habit-tracker",
-        title: "Habit Tracker",
-        subtitle: "Streaks + weekly heatmap",
-        icon: "flame",
-        href: "/(app)/productivity/habit-tracker",
       },
       {
         key: "quick-notes",
@@ -98,7 +84,7 @@ export default function ProductivityHome(): JSX.Element {
         keyExtractor={(c) => c.key}
         numColumns={2}
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 18 }}
-        columnWrapperStyle={{ gap: 12 }}
+        columnWrapperStyle={{ gap: 12, marginBottom: 12 }}
         renderItem={({ item: c }) => (
           <FadeIn>
             <Pressable
@@ -111,7 +97,6 @@ export default function ProductivityHome(): JSX.Element {
                 backgroundColor: pressed ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)",
                 borderWidth: 1,
                 borderColor: "rgba(255,255,255,0.08)",
-                marginBottom: 12,
               })}
             >
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>

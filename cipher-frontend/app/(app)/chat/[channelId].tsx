@@ -93,6 +93,57 @@ export default function ChannelScreenNative(): JSX.Element {
     { key: string; uri: string; name: string; mimeType: string; kind: "image" | "document" }[]
   >([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pollOpen, setPollOpen] = useState<boolean>(false);
+  const [pollQuestion, setPollQuestion] = useState<string>("");
+  const [pollOpt1, setPollOpt1] = useState<string>("");
+  const [pollOpt2, setPollOpt2] = useState<string>("");
+  const [pollOpt3, setPollOpt3] = useState<string>("");
+  const [pollOpt4, setPollOpt4] = useState<string>("");
+  const [newThreadOpen, setNewThreadOpen] = useState<boolean>(false);
+  const [newThreadText, setNewThreadText] = useState<string>("");
+
+  async function createPoll(): Promise<void> {
+    if (!channelId) return;
+    const q = pollQuestion.trim();
+    const opts = [pollOpt1, pollOpt2, pollOpt3, pollOpt4].map((s) => s.trim()).filter(Boolean);
+    if (!q || opts.length < 2) return;
+
+    const body = [`📊 Poll: ${q}`, ...opts.map((o, idx) => `${idx + 1}) ${o}`)].join("\n");
+    setPollOpen(false);
+    setIsAttachmentsOpen(false);
+    setPollQuestion("");
+    setPollOpt1("");
+    setPollOpt2("");
+    setPollOpt3("");
+    setPollOpt4("");
+
+    try {
+      const m = await createMessage({ channelId, text: body });
+      upsertMessage(m);
+      scrollToBottom(true);
+    } catch (e: any) {
+      setError(typeof e?.message === "string" ? e.message : "Failed to create poll");
+    }
+  }
+
+  async function createThreadRoot(): Promise<void> {
+    if (!channelId) return;
+    const rootText = newThreadText.trim();
+    if (!rootText) return;
+
+    setNewThreadText("");
+    setNewThreadOpen(false);
+    setIsAttachmentsOpen(false);
+
+    try {
+      const root = await createMessage({ channelId, text: rootText });
+      upsertMessage(root);
+      scrollToBottom(true);
+      void openThread(root._id);
+    } catch (e: any) {
+      setError(typeof e?.message === "string" ? e.message : "Failed to start thread");
+    }
+  }
 
   function getErrorMessage(e: any, fallback: string): string {
     const serverMsg = e?.response?.data?.message;
@@ -824,6 +875,8 @@ export default function ChannelScreenNative(): JSX.Element {
       { key: "gallery", label: "Gallery" },
       { key: "camera", label: "Camera" },
       { key: "document", label: "Document" },
+      { key: "poll", label: "Poll" },
+      { key: "thread", label: "Thread" },
     ],
     []
   );
@@ -1100,6 +1153,8 @@ export default function ChannelScreenNative(): JSX.Element {
                   if (it.key === "gallery") void pickImage(false);
                   else if (it.key === "camera") void pickImage(true);
                   else if (it.key === "document") void pickDocument();
+                  else if (it.key === "poll") setPollOpen(true);
+                  else if (it.key === "thread") setNewThreadOpen(true);
                   else setIsAttachmentsOpen(false);
                 }}
                 style={({ pressed }) => ({
@@ -1126,6 +1181,10 @@ export default function ChannelScreenNative(): JSX.Element {
                     <Ionicons name="camera-outline" size={22} color={Colors.dark.textPrimary} />
                   ) : it.key === "document" ? (
                     <Ionicons name="document-outline" size={22} color={Colors.dark.textPrimary} />
+                  ) : it.key === "poll" ? (
+                    <Ionicons name="stats-chart-outline" size={22} color={Colors.dark.textPrimary} />
+                  ) : it.key === "thread" ? (
+                    <Ionicons name="git-branch-outline" size={22} color={Colors.dark.textPrimary} />
                   ) : (
                     <Ionicons name="add-outline" size={22} color={Colors.dark.textPrimary} />
                   )}
@@ -1133,6 +1192,141 @@ export default function ChannelScreenNative(): JSX.Element {
                 <Text style={{ color: Colors.dark.textSecondary, fontSize: 12 }}>{it.label}</Text>
               </Pressable>
             ))}
+          </View>
+        </PremiumModal>
+
+        <PremiumModal
+          visible={pollOpen}
+          title="Create poll"
+          canClose={!isUploading}
+          presentation="bottom"
+          onClose={() => setPollOpen(false)}
+        >
+          <Text style={{ color: Colors.dark.textSecondary, marginBottom: 8 }}>Question</Text>
+          <TextInput
+            value={pollQuestion}
+            onChangeText={setPollQuestion}
+            placeholder="Ask a question"
+            placeholderTextColor={Colors.dark.textSecondary}
+            style={{
+              borderRadius: 14,
+              backgroundColor: "rgba(255,255,255,0.06)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.10)",
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              color: Colors.dark.textPrimary,
+            }}
+          />
+
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ color: Colors.dark.textSecondary, marginBottom: 8 }}>Options</Text>
+            {[{ v: pollOpt1, s: setPollOpt1 }, { v: pollOpt2, s: setPollOpt2 }, { v: pollOpt3, s: setPollOpt3 }, { v: pollOpt4, s: setPollOpt4 }].map(
+              (it, idx) => (
+                <TextInput
+                  key={idx}
+                  value={it.v}
+                  onChangeText={it.s}
+                  placeholder={`Option ${idx + 1}${idx < 2 ? "" : " (optional)"}`}
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  style={{
+                    marginTop: idx === 0 ? 0 : 8,
+                    borderRadius: 14,
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.10)",
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: Colors.dark.textPrimary,
+                  }}
+                />
+              )
+            )}
+          </View>
+
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+            <Pressable
+              onPress={() => setPollOpen(false)}
+              style={({ pressed }) => ({
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 14,
+                backgroundColor: pressed ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)",
+                alignItems: "center",
+              })}
+            >
+              <Text style={{ color: Colors.dark.textPrimary, fontWeight: "900" }}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              disabled={!pollQuestion.trim() || !(pollOpt1.trim() && pollOpt2.trim())}
+              onPress={() => void createPoll()}
+              style={({ pressed }) => ({
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 14,
+                opacity: !pollQuestion.trim() || !(pollOpt1.trim() && pollOpt2.trim()) ? 0.5 : 1,
+                backgroundColor: pressed ? "rgba(37,211,102,0.70)" : "rgba(37,211,102,1)",
+                alignItems: "center",
+              })}
+            >
+              <Text style={{ color: "white", fontWeight: "900" }}>Create</Text>
+            </Pressable>
+          </View>
+        </PremiumModal>
+
+        <PremiumModal
+          visible={newThreadOpen}
+          title="Start thread"
+          canClose={!isUploading}
+          presentation="bottom"
+          onClose={() => setNewThreadOpen(false)}
+        >
+          <Text style={{ color: Colors.dark.textSecondary, marginBottom: 8 }}>Topic</Text>
+          <TextInput
+            value={newThreadText}
+            onChangeText={setNewThreadText}
+            placeholder="Write the first message"
+            placeholderTextColor={Colors.dark.textSecondary}
+            multiline
+            textAlignVertical="top"
+            style={{
+              minHeight: 120,
+              borderRadius: 14,
+              backgroundColor: "rgba(255,255,255,0.06)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.10)",
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+              color: Colors.dark.textPrimary,
+            }}
+          />
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+            <Pressable
+              onPress={() => setNewThreadOpen(false)}
+              style={({ pressed }) => ({
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 14,
+                backgroundColor: pressed ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)",
+                alignItems: "center",
+              })}
+            >
+              <Text style={{ color: Colors.dark.textPrimary, fontWeight: "900" }}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              disabled={!newThreadText.trim()}
+              onPress={() => void createThreadRoot()}
+              style={({ pressed }) => ({
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 14,
+                opacity: !newThreadText.trim() ? 0.5 : 1,
+                backgroundColor: pressed ? "rgba(37,211,102,0.70)" : "rgba(37,211,102,1)",
+                alignItems: "center",
+              })}
+            >
+              <Text style={{ color: "white", fontWeight: "900" }}>Start</Text>
+            </Pressable>
           </View>
         </PremiumModal>
 
@@ -1347,15 +1541,27 @@ export default function ChannelScreenNative(): JSX.Element {
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
             <FadeIn>
+              {(() => {
+                const isMine = !!myUserId && item.sender?._id === myUserId;
+                const isSelected = !!selectedId && selectedId === item._id;
+                return (
               <View
                 style={{
-                  alignSelf: !!myUserId && item.sender?._id === myUserId ? "flex-end" : "flex-start",
-                  backgroundColor: !!myUserId && item.sender?._id === myUserId ? "#075e54" : "rgba(255,255,255,0.06)",
+                  alignSelf: isMine ? "flex-end" : "flex-start",
+                  backgroundColor: isSelected
+                    ? isMine
+                      ? "rgba(37,211,102,0.22)"
+                      : "rgba(37,211,102,0.14)"
+                    : isMine
+                      ? "#075e54"
+                      : "rgba(255,255,255,0.06)",
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                   borderRadius: 12,
                   marginBottom: 10,
                   maxWidth: "86%",
+                  borderWidth: isSelected ? 1 : 0,
+                  borderColor: isSelected ? "rgba(37,211,102,0.55)" : "transparent",
                 }}
               >
                 <Pressable
@@ -1427,6 +1633,8 @@ export default function ChannelScreenNative(): JSX.Element {
               <Text style={{ color: Colors.dark.textPrimary }}>{item.text}</Text>
                 </Pressable>
               </View>
+                );
+              })()}
             </FadeIn>
           )}
         ListEmptyComponent={

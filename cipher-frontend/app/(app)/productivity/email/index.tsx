@@ -143,7 +143,7 @@ export default function EmailScreen(): JSX.Element {
                       <Text style={{ color: Colors.dark.textPrimary, fontWeight: "900" }} numberOfLines={1}>
                         {u.name || u.email}
                       </Text>
-                      <Text style={{ color: Colors.dark.textSecondary }} numberOfLines={1}>
+                      <Text style={{ color: Colors.dark.textSecondary, flexShrink: 1 }}>
                         {u.email}
                       </Text>
                     </View>
@@ -178,6 +178,9 @@ export default function EmailScreen(): JSX.Element {
             onChangeText={setSubject}
             placeholder="Subject"
             placeholderTextColor={Colors.dark.textSecondary}
+            autoCapitalize="sentences"
+            autoCorrect
+            returnKeyType="next"
             style={{
               marginTop: 10,
               borderRadius: 14,
@@ -197,6 +200,8 @@ export default function EmailScreen(): JSX.Element {
             placeholderTextColor={Colors.dark.textSecondary}
             multiline
             textAlignVertical="top"
+            autoCapitalize="sentences"
+            autoCorrect
             style={{
               marginTop: 10,
               borderRadius: 14,

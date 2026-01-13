@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Calendar } from "react-native-calendars";
 import { Colors } from "../../../../utils/colors";
 import { PremiumScreen } from "../../../../components/PremiumScreen";
 import { getActiveWorkspaceId } from "../../../../services/workspaceSelection";
@@ -27,6 +28,7 @@ export default function CalendarScreen(): JSX.Element {
   const [busy, setBusy] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskDto[]>([]);
+  const [selectedYmd, setSelectedYmd] = useState<string>(todayYmd);
 
   useEffect(() => {
     let active = true;
@@ -82,6 +84,41 @@ export default function CalendarScreen(): JSX.Element {
     return { dueToday, dueTomorrow, noDueDate };
   }, [tasks, todayYmd, tomorrowYmd]);
 
+  const byDay = useMemo(() => {
+    const map: Record<string, TaskDto[]> = {};
+    for (const t of tasks) {
+      if (t.status === "done") continue;
+      if (!t.dueAt) continue;
+      const d = new Date(String(t.dueAt));
+      if (Number.isNaN(d.getTime())) continue;
+      const ymd = toYmd(d);
+      (map[ymd] ||= []).push(t);
+    }
+    return map;
+  }, [tasks]);
+
+  const markedDates = useMemo(() => {
+    const marked: Record<string, any> = {};
+    for (const ymd of Object.keys(byDay)) {
+      marked[ymd] = {
+        marked: true,
+        dotColor: "rgba(37,211,102,1)",
+      };
+    }
+    marked[selectedYmd] = {
+      ...(marked[selectedYmd] ?? {}),
+      selected: true,
+      selectedColor: "rgba(37,211,102,0.85)",
+      selectedTextColor: "#0b141a",
+    };
+    return marked;
+  }, [byDay, selectedYmd]);
+
+  const selectedTasks = useMemo(() => {
+    const list = Array.isArray(byDay[selectedYmd]) ? byDay[selectedYmd] : [];
+    return list.slice(0, 20);
+  }, [byDay, selectedYmd]);
+
   return (
     <PremiumScreen padded={false} topPadding={0}>
       <View style={{ paddingTop: 56, paddingHorizontal: 16, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -111,12 +148,38 @@ export default function CalendarScreen(): JSX.Element {
             </Pressable>
           </View>
         </View>
+
+        <View style={{ marginTop: 12, borderRadius: 16, padding: 10, backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
+          <Calendar
+            current={selectedYmd}
+            onDayPress={(day) => {
+              const ymd = String((day as any)?.dateString ?? "");
+              if (ymd) setSelectedYmd(ymd);
+            }}
+            markedDates={markedDates}
+            theme={{
+              calendarBackground: "transparent",
+              textSectionTitleColor: Colors.dark.textSecondary,
+              monthTextColor: Colors.dark.textPrimary,
+              dayTextColor: Colors.dark.textPrimary,
+              textDisabledColor: "rgba(255,255,255,0.28)",
+              arrowColor: Colors.dark.textPrimary,
+              todayTextColor: "rgba(37,211,102,1)",
+              selectedDayBackgroundColor: "rgba(37,211,102,0.85)",
+              selectedDayTextColor: "#0b141a",
+              dotColor: "rgba(37,211,102,1)",
+              selectedDotColor: "#0b141a",
+            }}
+            enableSwipeMonths
+          />
+        </View>
       </View>
 
       <FlatList
         style={{ flex: 1, marginTop: 10 }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 18 }}
         data={[
+          { key: "selected", title: `${selectedYmd} (${selectedTasks.length})`, items: selectedTasks },
           { key: "today", title: `Today (${dueToday.length})`, items: dueToday },
           { key: "tomorrow", title: `Tomorrow (${dueTomorrow.length})`, items: dueTomorrow },
           { key: "later", title: `No / other due date (${noDueDate.length})`, items: noDueDate.slice(0, 10) },
