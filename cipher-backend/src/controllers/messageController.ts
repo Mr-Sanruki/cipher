@@ -27,6 +27,12 @@ export const createMessageBodySchema = z.object({
     .optional()
     .default([]),
   threadRootId: z.string().optional().default(""),
+  poll: z
+    .object({
+      question: z.string().min(1).max(240),
+      options: z.array(z.string().min(1).max(120)).min(2).max(6),
+    })
+    .optional(),
 });
 
 export const updateMessageBodySchema = z.object({
@@ -35,6 +41,10 @@ export const updateMessageBodySchema = z.object({
 
 export const reactBodySchema = z.object({
   emoji: z.string().min(1).max(16),
+});
+
+export const votePollBodySchema = z.object({
+  optionIndex: z.number().int().min(0).max(10),
 });
 
 export async function createMessage(
@@ -48,7 +58,6 @@ export async function createMessage(
     if (!mongoose.isValidObjectId(body.channelId)) {
       throw new HttpError(400, "Invalid channelId");
     }
-
     const { channel } = await requireChannelMember({ userId: req.userId, channelId: body.channelId });
 
     const postingPolicy = String((channel as any).postingPolicy ?? "everyone");
@@ -61,7 +70,7 @@ export async function createMessage(
     }
 
     const trimmed = (body.text ?? "").trim();
-    if (!trimmed && body.attachments.length === 0) {
+    if (!trimmed && body.attachments.length === 0 && !body.poll) {
       throw new HttpError(400, "Message cannot be empty");
     }
 
@@ -102,6 +111,13 @@ export async function createMessage(
     const workspaceId = workspace ? String((workspace as any)._id) : null;
     const { userIds: mentionIds } = workspaceId ? await parseMentions(trimmed, workspaceId) : { userIds: [] };
 
+    const pollInput = body.poll
+      ? {
+          question: body.poll.question.trim(),
+          options: body.poll.options.map((t) => ({ text: t.trim(), votes: [] as any[] })),
+        }
+      : null;
+
     const message = await Message.create({
       channelId: channel._id,
       senderId: req.userId,
@@ -109,6 +125,7 @@ export async function createMessage(
       attachments: body.attachments,
       reactions: [],
       readBy: [{ userId: req.userId }],
+      poll: pollInput,
       editedAt: null,
       deletedAt: null,
       threadRootId,
@@ -333,6 +350,49 @@ export async function deleteMessage(
     await Message.deleteOne({ _id: message._id });
     getIo().to(channelId).emit("message-deleted", { messageId: String(message._id) });
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function voteMessagePoll(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const messageId = String(req.params.messageId);
+    const body = votePollBodySchema.parse(req.body);
+
+    if (!mongoose.isValidObjectId(messageId)) throw new HttpError(400, "Invalid messageId");
+
+    const message = await Message.findById(messageId);
+    if (!message) throw new HttpError(404, "Message not found");
+
+    await requireChannelMember({ userId: req.userId, channelId: String(message.channelId) });
+
+    const poll = (message as any).poll;
+    if (!poll) throw new HttpError(400, "Message has no poll");
+    const options = Array.isArray(poll.options) ? (poll.options as any[]) : [];
+    if (options.length < 2) throw new HttpError(400, "Invalid poll");
+    if (body.optionIndex < 0 || body.optionIndex >= options.length) throw new HttpError(400, "Invalid optionIndex");
+
+    for (const opt of options) {
+      const votes = Array.isArray(opt.votes) ? (opt.votes as any[]) : [];
+      opt.votes = votes.filter((v) => String(v) !== req.userId);
+    }
+
+    const chosen = options[body.optionIndex];
+    const chosenVotes = Array.isArray(chosen.votes) ? (chosen.votes as any[]) : [];
+    if (!chosenVotes.some((v) => String(v) === req.userId)) {
+      chosenVotes.push(req.userId as any);
+    }
+    chosen.votes = chosenVotes;
+
+    (message as any).poll.options = options;
+    await message.save();
+
+    const sender = await User.findById((message as any).senderId).lean();
+    const dto = toMessageDto(message, sender);
+    getIo().to(String(message.channelId)).emit("receive-message", { message: dto });
+
+    res.json({ message: dto });
   } catch (error) {
     next(error);
   }
@@ -599,6 +659,19 @@ function toMessageDto(message: any, sender: any | null, userMap?: Map<string, an
       }
     : null;
 
+  const poll = (message as any).poll;
+  const pollDto = poll
+    ? {
+        question: String(poll.question ?? ""),
+        options: Array.isArray(poll.options)
+          ? (poll.options as any[]).map((o) => ({
+              text: String((o as any).text ?? ""),
+              votes: Array.isArray((o as any).votes) ? ((o as any).votes as any[]).map((v) => String(v)) : [],
+            }))
+          : [],
+      }
+    : null;
+
   return {
     _id: String(message._id),
     channelId: String(message.channelId),
@@ -606,6 +679,7 @@ function toMessageDto(message: any, sender: any | null, userMap?: Map<string, an
     text: message.deletedAt ? "" : String(message.text ?? ""),
     attachments: message.attachments ?? [],
     reactions: message.reactions ?? [],
+    poll: pollDto,
     readBy: readBy.map((r) => ({ userId: String((r as any)?.userId ?? ""), readAt: (r as any)?.readAt })),
     readByUsers,
     editedAt: message.editedAt,

@@ -7,6 +7,10 @@ export type DmMessageDto = {
   text: string;
   attachments: { url: string; type: string; name?: string; size?: number }[];
   reactions?: { emoji: string; userId: string }[];
+  poll?: {
+    question: string;
+    options: { text: string; votes: string[] }[];
+  } | null;
   readBy?: { userId: string; readAt?: string }[];
   editedAt?: string | null;
   deletedAt?: string | null;
@@ -41,17 +45,28 @@ export async function createDmMessage(input: {
   text: string;
   attachments?: { url: string; type: string; name?: string; size?: number }[];
   threadRootId?: string;
+  poll?: { question: string; options: string[] };
 }): Promise<DmMessageDto> {
   const res = await api.post("/api/dms/messages", {
     dmId: input.dmId,
     text: input.text,
     attachments: input.attachments ?? [],
     threadRootId: input.threadRootId ?? "",
+    poll: input.poll,
   });
 
   const message = (res.data as any)?.message as DmMessageDto | undefined;
   if (!message?._id) {
     throw new Error("Invalid send DM response");
+  }
+  return message;
+}
+
+export async function voteDmMessagePoll(input: { messageId: string; optionIndex: number }): Promise<DmMessageDto> {
+  const res = await api.post(`/api/dms/messages/${input.messageId}/poll-vote`, { optionIndex: input.optionIndex });
+  const message = (res.data as any)?.message as DmMessageDto | undefined;
+  if (!message?._id) {
+    throw new Error("Invalid poll vote response");
   }
   return message;
 }

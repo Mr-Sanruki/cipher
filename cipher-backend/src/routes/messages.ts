@@ -11,6 +11,8 @@ import {
   pinMessage,
   reactBodySchema,
   reactMessage,
+  voteMessagePoll,
+  votePollBodySchema,
   searchMessages,
   unpinMessage,
   updateMessage,
@@ -27,6 +29,7 @@ router.get("/:channelId/pinned", requireAuth, getPinnedMessages);
 router.put("/:messageId", requireAuth, validateBody(updateMessageBodySchema), updateMessage);
 router.delete("/:messageId", requireAuth, deleteMessage);
 router.post("/:messageId/reactions", requireAuth, validateBody(reactBodySchema), reactMessage);
+router.post("/:messageId/poll-vote", requireAuth, validateBody(votePollBodySchema), voteMessagePoll);
 router.post("/:messageId/pin", requireAuth, pinMessage);
 router.post("/:messageId/unpin", requireAuth, unpinMessage);
 

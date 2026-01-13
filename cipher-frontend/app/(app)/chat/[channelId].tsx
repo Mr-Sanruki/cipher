@@ -13,7 +13,17 @@ import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { useAuth } from "../../../hooks/useAuth";
 import { useSocket } from "../../../hooks/useSocket";
 import { Colors } from "../../../utils/colors";
-import { createMessage, deleteMessage, getThread, listMessages, pinMessage, reactMessage, unpinMessage, updateMessage } from "../../../services/messages";
+import {
+  createMessage,
+  deleteMessage,
+  getThread,
+  listMessages,
+  pinMessage,
+  reactMessage,
+  unpinMessage,
+  updateMessage,
+  voteMessagePoll,
+} from "../../../services/messages";
 import { setChannelLastRead } from "../../../services/chatReadState";
 import { clearChatForMe, getChatClearedAt } from "../../../services/chatClearState";
 import { getChannel, updateChannel, deleteChannel, type ChannelDetailsDto } from "../../../services/channels";
@@ -108,7 +118,6 @@ export default function ChannelScreenNative(): JSX.Element {
     const opts = [pollOpt1, pollOpt2, pollOpt3, pollOpt4].map((s) => s.trim()).filter(Boolean);
     if (!q || opts.length < 2) return;
 
-    const body = [`📊 Poll: ${q}`, ...opts.map((o, idx) => `${idx + 1}) ${o}`)].join("\n");
     setPollOpen(false);
     setIsAttachmentsOpen(false);
     setPollQuestion("");
@@ -118,7 +127,7 @@ export default function ChannelScreenNative(): JSX.Element {
     setPollOpt4("");
 
     try {
-      const m = await createMessage({ channelId, text: body });
+      const m = await createMessage({ channelId, text: "", poll: { question: q, options: opts } });
       upsertMessage(m);
       scrollToBottom(true);
     } catch (e: any) {
@@ -1586,6 +1595,13 @@ export default function ChannelScreenNative(): JSX.Element {
               {(() => {
                 const isMine = !!myUserId && item.sender?._id === myUserId;
                 const isSelected = !!selectedIds[item._id];
+                const poll = (item as any).poll as
+                  | { question: string; options: { text: string; votes: string[] }[] }
+                  | null
+                  | undefined;
+                const myVoteIndex = poll
+                  ? (poll.options ?? []).findIndex((o) => Array.isArray(o?.votes) && o.votes.includes(myUserId))
+                  : -1;
                 return (
               <View
                 style={{
@@ -1669,6 +1685,51 @@ export default function ChannelScreenNative(): JSX.Element {
                       </View>
                     </Pop>
                   ))}
+                </View>
+              ) : null}
+
+              {poll && Array.isArray(poll.options) && poll.options.length > 0 ? (
+                <View style={{ marginBottom: item.text ? 8 : 0 }}>
+                  <Text style={{ color: Colors.dark.textPrimary, fontWeight: "900", marginBottom: 8 }}>{poll.question}</Text>
+                  <View style={{ gap: 8 }}>
+                    {poll.options.map((o, idx) => {
+                      const votes = Array.isArray(o?.votes) ? o.votes : [];
+                      const selected = idx === myVoteIndex;
+                      return (
+                        <Pressable
+                          key={`${item._id}_opt_${idx}`}
+                          disabled={!myUserId}
+                          onPress={() => {
+                            void (async () => {
+                              try {
+                                const updated = await voteMessagePoll({ messageId: item._id, optionIndex: idx });
+                                upsertMessage(updated);
+                              } catch {
+                                // ignore
+                              }
+                            })();
+                          }}
+                          style={({ pressed }) => ({
+                            paddingHorizontal: 10,
+                            paddingVertical: 9,
+                            borderRadius: 12,
+                            backgroundColor: selected
+                              ? "rgba(37,211,102,0.22)"
+                              : pressed
+                                ? "rgba(255,255,255,0.10)"
+                                : "rgba(0,0,0,0.18)",
+                            borderWidth: 1,
+                            borderColor: selected ? "rgba(37,211,102,0.55)" : "rgba(255,255,255,0.10)",
+                          })}
+                        >
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
+                            <Text style={{ color: Colors.dark.textPrimary, flex: 1 }}>{o.text}</Text>
+                            <Text style={{ color: Colors.dark.textSecondary }}>{votes.length}</Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
               ) : null}
 

@@ -26,6 +26,22 @@ const readReceiptSchema = new Schema(
   { _id: false },
 );
 
+const pollOptionSchema = new Schema(
+  {
+    text: { type: String, required: true, trim: true },
+    votes: { type: [Schema.Types.ObjectId], ref: "User", default: [] },
+  },
+  { timestamps: false },
+);
+
+const pollSchema = new Schema(
+  {
+    question: { type: String, required: true, trim: true },
+    options: { type: [pollOptionSchema], default: [] },
+  },
+  { _id: false, timestamps: false },
+);
+
 const messageSchema = new Schema(
   {
     channelId: { type: Schema.Types.ObjectId, ref: "Channel", required: true, index: true },
@@ -34,6 +50,7 @@ const messageSchema = new Schema(
     attachments: { type: [attachmentSchema], default: [] },
     reactions: { type: [reactionSchema], default: [] },
     readBy: { type: [readReceiptSchema], default: [] },
+    poll: { type: pollSchema, default: null },
     editedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
     threadRootId: { type: Schema.Types.ObjectId, ref: "Message", default: null, index: true },

@@ -17,6 +17,8 @@ import {
   leaveGroup,
   reactDirectMessageBodySchema,
   reactDirectMessageContent,
+  voteDirectMessagePoll,
+  votePollBodySchema,
   renameGroup,
   renameGroupBodySchema,
   updateDirectMessageContent,
@@ -64,6 +66,12 @@ router.post(
   requireAuth,
   validateBody(reactDirectMessageBodySchema),
   reactDirectMessageContent,
+);
+router.post(
+  "/messages/:messageId/poll-vote",
+  requireAuth,
+  validateBody(votePollBodySchema),
+  voteDirectMessagePoll,
 );
 
 export default router;

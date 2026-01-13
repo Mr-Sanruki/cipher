@@ -111,6 +111,10 @@ export type ChatMessageDto = {
   text: string;
   attachments: MessageAttachment[];
   reactions: MessageReaction[];
+  poll?: {
+    question: string;
+    options: { text: string; votes: string[] }[];
+  } | null;
   readBy: MessageReadReceipt[];
   readByUsers?: {
     _id: string;

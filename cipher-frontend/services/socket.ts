@@ -15,6 +15,10 @@ export type DmMessageDto = {
   sender: { _id: string; name: string; avatarUrl?: string };
   text: string;
   attachments: { url: string; type: string; name?: string; size?: number }[];
+  poll?: {
+    question: string;
+    options: { text: string; votes: string[] }[];
+  } | null;
   createdAt: string;
   updatedAt: string;
 };

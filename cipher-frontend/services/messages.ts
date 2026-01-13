@@ -26,6 +26,7 @@ export async function createMessage(input: {
   text: string;
   attachments?: { url: string; type: string; name?: string; size?: number }[];
   threadRootId?: string;
+  poll?: { question: string; options: string[] };
 }): Promise<ChatMessageDto> {
   const res = await api.post("/api/messages", input);
   const message = (res.data as any)?.message as ChatMessageDto | undefined;
@@ -34,6 +35,15 @@ export async function createMessage(input: {
     throw new Error("Invalid create message response");
   }
 
+  return message;
+}
+
+export async function voteMessagePoll(input: { messageId: string; optionIndex: number }): Promise<ChatMessageDto> {
+  const res = await api.post(`/api/messages/${input.messageId}/poll-vote`, { optionIndex: input.optionIndex });
+  const message = (res.data as any)?.message as ChatMessageDto | undefined;
+  if (!message?._id) {
+    throw new Error("Invalid poll vote response");
+  }
   return message;
 }
 
