@@ -463,15 +463,29 @@ export async function deleteDirectMessageContent(req: AuthenticatedRequest, res:
     const isOwner = String((content as any).senderId) === req.userId;
     const dmType = String((dm as any).type ?? "direct");
     if (!isOwner) {
-      if (dmType !== "group") {
-        throw new HttpError(403, "You can only delete your own messages");
-      }
+      const createdAtMs = new Date((content as any).createdAt ?? 0).getTime();
+      const ageMs = Date.now() - createdAtMs;
+      const withinWindow = Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 10 * 60 * 1000;
 
-      // group DM: allow creator/admin
-      ensureGroupDm(dm);
-      const createdBy = String((dm as any).createdBy ?? "");
-      if (createdBy !== req.userId) {
-        requireGroupAdmin(dm, req.userId);
+      if (dmType !== "group") {
+        if (!withinWindow) {
+          throw new HttpError(403, "You can only delete your own messages");
+        }
+      } else {
+        // group DM: allow creator/admin anytime, otherwise allow within time window
+        ensureGroupDm(dm);
+        const createdBy = String((dm as any).createdBy ?? "");
+        const isPrivileged = createdBy === req.userId;
+        if (!isPrivileged) {
+          try {
+            requireGroupAdmin(dm, req.userId);
+            // privileged
+          } catch {
+            if (!withinWindow) {
+              throw new HttpError(403, "You can only delete your own messages");
+            }
+          }
+        }
       }
     }
 

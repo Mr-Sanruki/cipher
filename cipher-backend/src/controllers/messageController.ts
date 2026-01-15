@@ -325,7 +325,12 @@ export async function deleteMessage(
     const isOwner = String(message.senderId) === req.userId;
     const canDeleteOthers = role === "admin";
     if (!isOwner && !canDeleteOthers) {
-      throw new HttpError(403, "You can only delete your own messages");
+      const createdAtMs = new Date((message as any).createdAt ?? 0).getTime();
+      const ageMs = Date.now() - createdAtMs;
+      const withinWindow = Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 10 * 60 * 1000;
+      if (!withinWindow) {
+        throw new HttpError(403, "You can only delete your own messages");
+      }
     }
 
     const channelId = String(message.channelId);
