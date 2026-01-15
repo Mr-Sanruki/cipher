@@ -244,7 +244,7 @@ export default function CallScreen(): JSX.Element {
         streamCallRef.current = call;
         setStreamCall(call);
 
-        await call.join({ create: true, notify: Boolean(isInitiator), ring: Boolean(isInitiator), video: callType === "video" } as any);
+        await call.join({ create: true, notify: false, ring: Boolean(isInitiator), video: callType === "video" } as any);
 
         try {
           if (callType !== "video") {
