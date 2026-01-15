@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { NativeModules, Platform, Pressable, Text, View } from "react-native";
+import { Image, NativeModules, Platform, Pressable, Text, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Colors } from "../../../utils/colors";
 import { useCall } from "../../../hooks/useCall";
@@ -8,6 +8,8 @@ import type { CallSignal, CallType } from "../../../services/socket";
 import { useNavigation } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { PremiumScreen } from "../../../components/PremiumScreen";
+import { useAuth } from "../../../hooks/useAuth";
+import { getDm } from "../../../services/dms";
 
 function toErrorMessage(error: unknown): string {
   return typeof (error as any)?.message === "string" ? String((error as any).message) : "Request failed";
@@ -31,6 +33,7 @@ export default function CallScreen(): JSX.Element {
 
   const { socket, status: socketStatus } = useSocket();
   const { activeCall, status: callStatus, endCall } = useCall();
+  const { user } = useAuth();
 
   type WebRTCLib = typeof import("react-native-webrtc");
   const [webrtc, setWebrtc] = useState<WebRTCLib | null>(null);
@@ -49,6 +52,10 @@ export default function CallScreen(): JSX.Element {
   const [sharing, setSharing] = useState<boolean>(false);
   const [shareUnsupported, setShareUnsupported] = useState<boolean>(false);
 
+  const [otherName, setOtherName] = useState<string>("");
+  const [otherAvatar, setOtherAvatar] = useState<string>("");
+  const [elapsedSec, setElapsedSec] = useState<number>(0);
+
   const pcRef = useRef<any | null>(null);
   const localStreamRef = useRef<any | null>(null);
   const screenStreamRef = useRef<any | null>(null);
@@ -58,6 +65,44 @@ export default function CallScreen(): JSX.Element {
 
   const callType: CallType = (activeCall?.type ?? "voice") as CallType;
   const isInitiator = activeCall?.direction === "outgoing";
+  const myUserId = user?._id ?? "";
+
+  useEffect(() => {
+    let mounted = true;
+    const dmId = String(activeCall?.dmId ?? "");
+    if (!dmId) return;
+
+    void (async () => {
+      try {
+        const dm = await getDm(dmId);
+        if (!mounted) return;
+        const other = (dm.participants ?? []).find((p) => String(p.userId) !== myUserId);
+        const name = String(other?.user?.name ?? "").trim();
+        const avatarUrl = String(other?.user?.avatarUrl ?? "").trim();
+        setOtherName(name);
+        setOtherAvatar(avatarUrl);
+      } catch {
+        // ignore
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeCall?.dmId, myUserId]);
+
+  useEffect(() => {
+    if (callStatus !== "active") {
+      setElapsedSec(0);
+      return;
+    }
+    const startedAt = activeCall?.startedAt ? new Date(activeCall.startedAt).getTime() : Date.now();
+    const id = setInterval(() => {
+      const sec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      setElapsedSec(sec);
+    }, 500);
+    return () => clearInterval(id);
+  }, [callStatus, activeCall?.startedAt]);
 
   const canUseWebrtc = useMemo(() => {
     if (Platform.OS === "web") return false;
@@ -265,6 +310,8 @@ export default function CallScreen(): JSX.Element {
       if (videoSender && typeof videoSender.replaceTrack === "function") {
         try {
           await videoSender.replaceTrack(nextTrack);
+          // Some devices/Android builds require renegotiation to reliably update the remote track.
+          await renegotiate();
           return;
         } catch {
           // fall through to renegotiation fallback
@@ -534,6 +581,13 @@ export default function CallScreen(): JSX.Element {
     return "Voice call";
   }, [activeCall?.type]);
 
+  const connected = callStatus === "active";
+  const callTimer = useMemo(() => {
+    const m = Math.floor(elapsedSec / 60);
+    const s = elapsedSec % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }, [elapsedSec]);
+
   const debugText = useMemo(() => {
     const parts: string[] = [];
     parts.push(`socket: ${socketStatus}`);
@@ -579,7 +633,14 @@ export default function CallScreen(): JSX.Element {
         <Pressable onPress={onHangup} style={{ padding: 10 }}>
           <Ionicons name="chevron-back" size={24} color="white" />
         </Pressable>
-        <Text style={{ color: "white", fontWeight: "900" }}>{title}</Text>
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ color: "white", fontWeight: "900" }} numberOfLines={1}>
+            {otherName || title}
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }} numberOfLines={1}>
+            {connected ? callTimer : isInitiator ? "Calling…" : "Connecting…"}
+          </Text>
+        </View>
         <Pressable
           onPress={() => setDebugOpen((v) => !v)}
           style={({ pressed }) => ({ padding: 10, opacity: pressed ? 0.7 : 1 })}
@@ -607,9 +668,35 @@ export default function CallScreen(): JSX.Element {
           ) : null}
         </View>
       ) : (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: "white", fontWeight: "900", fontSize: 18 }}>Connecting…</Text>
-          <Text style={{ color: "rgba(255,255,255,0.7)", marginTop: 6 }}>{busy ? "Starting call" : ""}</Text>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 18 }}>
+          <View
+            style={{
+              width: 148,
+              height: 148,
+              borderRadius: 999,
+              backgroundColor: "rgba(255,255,255,0.08)",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+              marginBottom: 18,
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.12)",
+            }}
+          >
+            {otherAvatar ? (
+              <Image source={{ uri: otherAvatar }} style={{ width: 148, height: 148 }} />
+            ) : (
+              <Text style={{ color: "white", fontWeight: "900", fontSize: 44 }}>
+                {String(otherName || "U").trim().slice(0, 1).toUpperCase()}
+              </Text>
+            )}
+          </View>
+          <Text style={{ color: "white", fontWeight: "900", fontSize: 18 }}>
+            {connected ? "Connected" : isInitiator ? "Calling…" : "Connecting…"}
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.7)", marginTop: 6 }}>
+            {connected ? callTimer : busy ? "Starting call" : ""}
+          </Text>
         </View>
       )}
 
@@ -651,28 +738,38 @@ export default function CallScreen(): JSX.Element {
               alignItems: "center",
             })}
           >
-            <Text style={{ color: "white", fontWeight: "800", opacity: busy || shareUnsupported ? 0.6 : 1 }}>
-              {sharing ? "Stop share" : busy ? "Starting…" : "Share screen"}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, opacity: busy || shareUnsupported ? 0.6 : 1 }}>
+              <Ionicons name={sharing ? "stop-circle" : "phone-portrait-outline"} size={18} color="white" />
+              <Text style={{ color: "white", fontWeight: "800" }}>{sharing ? "Stop" : "Share"}</Text>
+            </View>
           </Pressable>
         ) : null}
         <Pressable
           onPress={toggleMute}
           style={({ pressed }) => ({ flex: 1, paddingVertical: 12, borderRadius: 999, backgroundColor: pressed ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.12)", alignItems: "center" })}
         >
-          <Text style={{ color: "white", fontWeight: "800" }}>{muted ? "Unmute" : "Mute"}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name={muted ? "mic-off" : "mic"} size={18} color="white" />
+            <Text style={{ color: "white", fontWeight: "800" }}>{muted ? "Unmute" : "Mute"}</Text>
+          </View>
         </Pressable>
         <Pressable
           onPress={toggleSpeaker}
           style={({ pressed }) => ({ flex: 1, paddingVertical: 12, borderRadius: 999, backgroundColor: pressed ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.12)", alignItems: "center" })}
         >
-          <Text style={{ color: "white", fontWeight: "800" }}>{speaker ? "Speaker" : "Earpiece"}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name={speaker ? "volume-high" : "ear"} size={18} color="white" />
+            <Text style={{ color: "white", fontWeight: "800" }}>{speaker ? "Speaker" : "Earpiece"}</Text>
+          </View>
         </Pressable>
         <Pressable
           onPress={onHangup}
           style={({ pressed }) => ({ flex: 1, paddingVertical: 12, borderRadius: 999, backgroundColor: pressed ? "rgba(255,59,48,0.7)" : "rgba(255,59,48,1)", alignItems: "center" })}
         >
-          <Text style={{ color: "white", fontWeight: "900" }}>End</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="call" size={18} color="white" />
+            <Text style={{ color: "white", fontWeight: "900" }}>End</Text>
+          </View>
         </Pressable>
       </View>
 

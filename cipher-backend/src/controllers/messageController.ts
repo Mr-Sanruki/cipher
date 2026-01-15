@@ -3,13 +3,10 @@ import mongoose from "mongoose";
 import { z } from "zod";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { HttpError } from "../middleware/errorHandler";
-import { Channel } from "../models/Channel";
+import { getIo } from "../socket";
 import { Message } from "../models/Message";
 import { User } from "../models/User";
-import { Workspace } from "../models/Workspace";
-import { getIo } from "../socket";
-import { requireChannelMember } from "../utils/access";
-import { requireWorkspaceMember } from "../utils/access";
+import { requireChannelMember, requireWorkspaceMember } from "../utils/access";
 import { parseMentions } from "../utils/mentions";
 
 export const createMessageBodySchema = z.object({
@@ -322,9 +319,12 @@ export async function deleteMessage(
     const message = await Message.findById(messageId);
     if (!message) throw new HttpError(404, "Message not found");
 
-    await requireChannelMember({ userId: req.userId, channelId: String(message.channelId) });
+    const { channel } = await requireChannelMember({ userId: req.userId, channelId: String(message.channelId) });
+    const { role } = await requireWorkspaceMember({ userId: req.userId, workspaceId: String((channel as any).workspaceId) });
 
-    if (String(message.senderId) !== req.userId) {
+    const isOwner = String(message.senderId) === req.userId;
+    const canDeleteOthers = role === "admin";
+    if (!isOwner && !canDeleteOthers) {
       throw new HttpError(403, "You can only delete your own messages");
     }
 

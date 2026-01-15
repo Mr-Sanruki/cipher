@@ -460,8 +460,19 @@ export async function deleteDirectMessageContent(req: AuthenticatedRequest, res:
     const messageId = String(req.params.messageId);
     const { dm, content } = await ensureDmContentForParticipant({ userId: req.userId, messageId });
 
-    if (String((content as any).senderId) !== req.userId) {
-      throw new HttpError(403, "You can only delete your own messages");
+    const isOwner = String((content as any).senderId) === req.userId;
+    const dmType = String((dm as any).type ?? "direct");
+    if (!isOwner) {
+      if (dmType !== "group") {
+        throw new HttpError(403, "You can only delete your own messages");
+      }
+
+      // group DM: allow creator/admin
+      ensureGroupDm(dm);
+      const createdBy = String((dm as any).createdBy ?? "");
+      if (createdBy !== req.userId) {
+        requireGroupAdmin(dm, req.userId);
+      }
     }
 
     const dmId = String((content as any).dmId);
