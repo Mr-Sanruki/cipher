@@ -6,6 +6,8 @@ import { HttpError } from "../middleware/errorHandler";
 import { getIo } from "../socket";
 import { Message } from "../models/Message";
 import { User } from "../models/User";
+import { Workspace } from "../models/Workspace";
+import { Channel } from "../models/Channel";
 import { requireChannelMember, requireWorkspaceMember } from "../utils/access";
 import { parseMentions } from "../utils/mentions";
 
@@ -571,7 +573,7 @@ export async function searchMessages(
     }
 
     const workspaces = await Workspace.find({ "members.userId": req.userId }).select({ _id: 1 }).lean();
-    const workspaceIds = workspaces.map((w) => w._id);
+    const workspaceIds = workspaces.map((w: any) => w._id);
 
     const channels = await Channel.find({
       workspaceId: { $in: workspaceIds },
@@ -579,7 +581,7 @@ export async function searchMessages(
     })
       .select({ _id: 1 })
       .lean();
-    const channelIds = channels.map((c) => c._id);
+    const channelIds = channels.map((c: any) => c._id);
 
     const results = await Message.find({
       channelId: { $in: channelIds },

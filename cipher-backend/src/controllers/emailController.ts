@@ -47,7 +47,7 @@ function parseFrom(raw: string): { name: string; email: string } {
   return { name: "", email: trimmed };
 }
 
-async function safeReadBody(response: Response): Promise<string> {
+async function safeReadBody(response: globalThis.Response): Promise<string> {
   try {
     return await response.text();
   } catch {
