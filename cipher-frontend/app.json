@@ -8,6 +8,7 @@
     "userInterfaceStyle": "automatic",
     "plugins": [
       "expo-router",
+      "@stream-io/video-react-native-sdk",
       [
         "expo-build-properties",
         {
