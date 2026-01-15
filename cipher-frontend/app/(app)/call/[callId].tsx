@@ -65,8 +65,10 @@ export default function CallScreen(): JSX.Element {
 
   const pcRef = useRef<any | null>(null);
   const localStreamRef = useRef<any | null>(null);
+  const localPreviewStreamRef = useRef<any | null>(null);
   const screenStreamRef = useRef<any | null>(null);
   const cameraVideoTrackRef = useRef<any | null>(null);
+  const remoteStreamRef = useRef<any | null>(null);
   const remoteDescSetRef = useRef(false);
   const pendingCandidatesRef = useRef<{ candidate: string; sdpMid?: string | null; sdpMLineIndex?: number | null }[]>([]);
 
@@ -119,9 +121,10 @@ export default function CallScreen(): JSX.Element {
       // Start audio focus and route.
       InCallManager.start({ media: callType === "video" ? "video" : "audio" });
       InCallManager.setMicrophoneMute(false);
-      InCallManager.setSpeakerphoneOn(Boolean(speaker));
+      const wantSpeaker = callType === "video" ? true : Boolean(speaker);
+      InCallManager.setSpeakerphoneOn(Boolean(wantSpeaker));
       if (typeof InCallManager.setForceSpeakerphoneOn === "function") {
-        InCallManager.setForceSpeakerphoneOn(Boolean(speaker));
+        InCallManager.setForceSpeakerphoneOn(Boolean(wantSpeaker));
       }
     } catch {
       // ignore
@@ -135,6 +138,12 @@ export default function CallScreen(): JSX.Element {
       }
     };
   }, [activeCall, callId, callType, speaker]);
+
+  useEffect(() => {
+    if (callType === "video") {
+      setSpeaker(true);
+    }
+  }, [callType]);
 
   const canUseWebrtc = useMemo(() => {
     if (Platform.OS === "web") return false;
@@ -238,6 +247,18 @@ export default function CallScreen(): JSX.Element {
       }
     }
 
+    if (localPreviewStreamRef.current) {
+      try {
+        localPreviewStreamRef.current.getTracks().forEach((t: any) => t.stop());
+      } catch {
+        // ignore
+      } finally {
+        localPreviewStreamRef.current = null;
+      }
+    }
+
+    remoteStreamRef.current = null;
+
     setLocalUrl(null);
     setRemoteUrl(null);
   }, []);
@@ -257,9 +278,62 @@ export default function CallScreen(): JSX.Element {
       cameraVideoTrackRef.current = null;
     }
     localStreamRef.current = stream;
-    setLocalUrl((stream as any).toURL ? (stream as any).toURL() : null);
+
+    try {
+      const preview = new (webrtc as any).MediaStream();
+      stream.getTracks().forEach((t: any) => preview.addTrack(t));
+      localPreviewStreamRef.current = preview;
+      setLocalUrl((preview as any).toURL ? (preview as any).toURL() : (stream as any).toURL ? (stream as any).toURL() : null);
+    } catch {
+      localPreviewStreamRef.current = null;
+      setLocalUrl((stream as any).toURL ? (stream as any).toURL() : null);
+    }
+
     return stream;
   }, [webrtc, webrtcUnavailableMessage, callType]);
+
+  const setLocalPreviewTrack = useCallback(
+    (videoTrack: any | null) => {
+      if (!webrtc) return;
+      const base = localStreamRef.current;
+      if (!base) return;
+
+      try {
+        const preview = localPreviewStreamRef.current ?? new (webrtc as any).MediaStream();
+
+        try {
+          preview.getVideoTracks?.()?.forEach((t: any) => preview.removeTrack(t));
+        } catch {
+          // ignore
+        }
+
+        if (videoTrack) {
+          preview.addTrack(videoTrack);
+        } else {
+          const cam = base.getVideoTracks?.()?.[0] ?? null;
+          if (cam) preview.addTrack(cam);
+        }
+
+        try {
+          const audio = base.getAudioTracks?.()?.[0] ?? null;
+          const existingAudio = preview.getAudioTracks?.()?.[0] ?? null;
+          if (audio && !existingAudio) {
+            preview.addTrack(audio);
+          }
+        } catch {
+          // ignore
+        }
+
+        localPreviewStreamRef.current = preview;
+        const url = (preview as any).toURL ? (preview as any).toURL() : null;
+        setLocalUrl(null);
+        setTimeout(() => setLocalUrl(url), 50);
+      } catch {
+        // ignore
+      }
+    },
+    [webrtc],
+  );
 
   const ensurePeerConnection = useCallback(async (): Promise<any> => {
     if (!webrtc) throw new Error(webrtcUnavailableMessage || "WebRTC is unavailable");
@@ -287,13 +361,56 @@ export default function CallScreen(): JSX.Element {
     (pc as any).onaddstream = (event: any) => {
       const stream = event?.stream as any;
       if (!stream) return;
+      remoteStreamRef.current = stream;
       setRemoteUrl((stream as any).toURL ? (stream as any).toURL() : null);
     };
 
     (pc as any).ontrack = (event: any) => {
       const stream = (event?.streams?.[0] as any) ?? null;
-      if (!stream) return;
-      setRemoteUrl((stream as any).toURL ? (stream as any).toURL() : null);
+      const track = event?.track as any;
+      if (!track) return;
+
+      try {
+        const existing = remoteStreamRef.current;
+        if (existing) {
+          try {
+            const existingVideo = existing.getVideoTracks?.()?.[0] ?? null;
+            if (track.kind === "video" && existingVideo && String(existingVideo.id ?? "") === String(track.id ?? "")) {
+              const url = (existing as any).toURL ? (existing as any).toURL() : null;
+              if (url) {
+                setRemoteUrl(null);
+                setTimeout(() => setRemoteUrl(url), 50);
+              }
+              return;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        const nextRemote = new (webrtc as any).MediaStream();
+        if (track.kind === "video") {
+          nextRemote.addTrack(track);
+          const audio = stream?.getAudioTracks?.()?.[0] ?? existing?.getAudioTracks?.()?.[0] ?? null;
+          if (audio) nextRemote.addTrack(audio);
+        } else if (track.kind === "audio") {
+          nextRemote.addTrack(track);
+          const video = stream?.getVideoTracks?.()?.[0] ?? existing?.getVideoTracks?.()?.[0] ?? null;
+          if (video) nextRemote.addTrack(video);
+        } else if (stream) {
+          stream.getTracks?.()?.forEach((t: any) => nextRemote.addTrack(t));
+        }
+
+        remoteStreamRef.current = nextRemote;
+        const url = (nextRemote as any).toURL ? (nextRemote as any).toURL() : null;
+        setRemoteUrl(null);
+        setTimeout(() => setRemoteUrl(url), 50);
+      } catch {
+        if (stream) {
+          remoteStreamRef.current = stream;
+          setRemoteUrl((stream as any).toURL ? (stream as any).toURL() : null);
+        }
+      }
     };
 
     const local = await ensureLocalStream();
@@ -344,6 +461,7 @@ export default function CallScreen(): JSX.Element {
           await videoSender.replaceTrack(nextTrack);
           // Some devices/Android builds require renegotiation to reliably update the remote track.
           await renegotiate();
+          setLocalPreviewTrack(nextTrack);
           return;
         } catch {
           // fall through to renegotiation fallback
@@ -366,8 +484,9 @@ export default function CallScreen(): JSX.Element {
       }
 
       await renegotiate();
+      setLocalPreviewTrack(nextTrack);
     },
-    [renegotiate],
+    [renegotiate, setLocalPreviewTrack],
   );
 
   const stopScreenShare = useCallback(async () => {
@@ -394,7 +513,8 @@ export default function CallScreen(): JSX.Element {
     // Restore local preview back to camera
     try {
       const s = localStreamRef.current;
-      setLocalUrl(s && (s as any).toURL ? (s as any).toURL() : null);
+      const cam = s?.getVideoTracks?.()?.[0] ?? null;
+      setLocalPreviewTrack(cam);
     } catch {
       // ignore
     }
