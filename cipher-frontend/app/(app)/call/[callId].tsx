@@ -11,6 +11,13 @@ import { PremiumScreen } from "../../../components/PremiumScreen";
 import { useAuth } from "../../../hooks/useAuth";
 import { getDm } from "../../../services/dms";
 
+let InCallManager: any;
+try {
+  InCallManager = require("react-native-incall-manager");
+} catch {
+  InCallManager = null;
+}
+
 function toErrorMessage(error: unknown): string {
   return typeof (error as any)?.message === "string" ? String((error as any).message) : "Request failed";
 }
@@ -103,6 +110,31 @@ export default function CallScreen(): JSX.Element {
     }, 500);
     return () => clearInterval(id);
   }, [callStatus, activeCall?.startedAt]);
+
+  useEffect(() => {
+    if (!InCallManager) return;
+    if (!activeCall || activeCall.callId !== callId) return;
+
+    try {
+      // Start audio focus and route.
+      InCallManager.start({ media: callType === "video" ? "video" : "audio" });
+      InCallManager.setMicrophoneMute(false);
+      InCallManager.setSpeakerphoneOn(Boolean(speaker));
+      if (typeof InCallManager.setForceSpeakerphoneOn === "function") {
+        InCallManager.setForceSpeakerphoneOn(Boolean(speaker));
+      }
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      try {
+        InCallManager.stop();
+      } catch {
+        // ignore
+      }
+    };
+  }, [activeCall, callId, callType, speaker]);
 
   const canUseWebrtc = useMemo(() => {
     if (Platform.OS === "web") return false;
@@ -617,12 +649,30 @@ export default function CallScreen(): JSX.Element {
     } catch {
       // ignore
     }
+
+    try {
+      if (InCallManager && typeof InCallManager.setMicrophoneMute === "function") {
+        InCallManager.setMicrophoneMute(Boolean(next));
+      }
+    } catch {
+      // ignore
+    }
   }, [muted]);
 
   const toggleSpeaker = useCallback(() => {
     const next = !speaker;
     setSpeaker(next);
-    // We keep it UI-only for now; proper audio routing can be added later with react-native-incall-manager.
+
+    try {
+      if (InCallManager && typeof InCallManager.setSpeakerphoneOn === "function") {
+        InCallManager.setSpeakerphoneOn(Boolean(next));
+      }
+      if (InCallManager && typeof InCallManager.setForceSpeakerphoneOn === "function") {
+        InCallManager.setForceSpeakerphoneOn(Boolean(next));
+      }
+    } catch {
+      // ignore
+    }
   }, [speaker]);
 
   const unavailable = !canUseWebrtc || !webrtc;
