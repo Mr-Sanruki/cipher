@@ -177,6 +177,12 @@ export default function CallScreen(): JSX.Element {
     }
   }, [callType]);
 
+  useEffect(() => {
+    if (callType !== "video" && Platform.OS === "android") {
+      setSpeaker(true);
+    }
+  }, [callType]);
+
   const cleanup = useCallback(async () => {
     if (cleanedUpRef.current) return;
     cleanedUpRef.current = true;
@@ -332,7 +338,7 @@ export default function CallScreen(): JSX.Element {
         InCallManager.setSpeakerphoneOn(Boolean(next));
       }
       if (InCallManager && typeof InCallManager.setForceSpeakerphoneOn === "function") {
-        InCallManager.setForceSpeakerphoneOn(Boolean(next));
+        InCallManager.setForceSpeakerphoneOn(next ? 1 : 0);
       }
     } catch {
       // ignore
