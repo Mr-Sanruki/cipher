@@ -115,7 +115,7 @@ function parseAiAttachmentsFromMessage(content: string): {
 export default function AiScreen(): JSX.Element {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
-  const [provider, setProvider] = useState<AiProvider>("grok");
+  const [provider, setProvider] = useState<AiProvider>("openai");
   const [model, setModel] = useState<string>("");
   const [streaming, setStreaming] = useState<boolean>(true);
   const [busy, setBusy] = useState<boolean>(false);
