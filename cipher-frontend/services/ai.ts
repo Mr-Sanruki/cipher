@@ -1,7 +1,7 @@
 import api from "./api";
 import { getToken } from "./auth";
 
-export type AiProvider = "openai" | "grok" | "ollama";
+export type AiProvider = "openai" | "grok";
 
 export type AiChatRole = "system" | "user" | "assistant";
 
