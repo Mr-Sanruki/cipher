@@ -57,6 +57,10 @@ export const twoFaDisableBodySchema = z.object({
   code: z.string().min(1),
 });
 
+export const registerExpoPushTokenBodySchema = z.object({
+  token: z.string().min(1).max(2048),
+});
+
 export async function getProfile(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const user = await User.findById(req.userId);
@@ -369,6 +373,29 @@ export async function disableTwoFa(req: AuthenticatedRequest, res: Response, nex
     await user.save();
 
     res.json({ message: "2FA disabled", user: user.toJSON() });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function registerExpoPushToken(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { token } = registerExpoPushTokenBodySchema.parse(req.body);
+    const trimmed = String(token).trim();
+    if (!trimmed) {
+      throw new HttpError(400, "Token is required");
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $addToSet: { expoPushTokens: trimmed } },
+      { new: true },
+    );
+    if (!user) {
+      throw new HttpError(404, "User not found");
+    }
+
+    res.json({ ok: true });
   } catch (error) {
     next(error);
   }

@@ -10,6 +10,7 @@ import { Workspace } from "../models/Workspace";
 import { Channel } from "../models/Channel";
 import { requireChannelMember, requireWorkspaceMember } from "../utils/access";
 import { parseMentions } from "../utils/mentions";
+import { sendExpoPush } from "../services/expoPushService";
 
 export const createMessageBodySchema = z.object({
   channelId: z.string().min(1),
@@ -136,6 +137,29 @@ export async function createMessage(
     const dto = toMessageDto(message, sender);
 
     getIo().to(String(channel._id)).emit("receive-message", { message: dto });
+
+    try {
+      const workspace = await Workspace.findById((channel as any).workspaceId).select({ members: 1, name: 1 }).lean();
+      const memberIds = (channel as any).isPrivate
+        ? Array.from(new Set((((channel as any).members as any[]) ?? []).map((m) => String((m as any).userId)).filter(Boolean)))
+        : Array.from(new Set((((workspace as any)?.members as any[]) ?? []).map((m) => String((m as any).userId)).filter(Boolean)));
+
+      const recipientIds = memberIds.filter((id) => id && id !== req.userId);
+      if (recipientIds.length > 0) {
+        const recipients = await User.find({ _id: { $in: recipientIds } }).select({ expoPushTokens: 1 }).lean();
+        const tokens = recipients.flatMap((u: any) => (Array.isArray(u.expoPushTokens) ? u.expoPushTokens : [])).map(String);
+        const title = String((channel as any).name ?? "Channel");
+        const bodyText = trimmed.length > 0 ? trimmed.slice(0, 140) : "New message";
+        await sendExpoPush(tokens, {
+          title,
+          body: bodyText,
+          data: { kind: "channel", channelId: String((channel as any)._id), messageId: String((message as any)._id) },
+          channelId: "default",
+        });
+      }
+    } catch {
+      // ignore
+    }
 
     res.status(201).json({ id: String(message._id), message: dto });
   } catch (error) {

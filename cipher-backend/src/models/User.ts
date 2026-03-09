@@ -13,6 +13,7 @@ const userSchema = new Schema(
     bio: { type: String, default: "", trim: true, maxlength: 280 },
     timezone: { type: String, default: "System", trim: true, maxlength: 64 },
     location: { type: String, default: "", trim: true, maxlength: 80 },
+    expoPushTokens: { type: [String], default: [], index: true },
     twoFaEnabled: { type: Boolean, default: false },
     twoFaSecret: { type: String, default: "" },
     twoFaBackupCodeHashes: { type: [String], default: [] },

@@ -10,6 +10,7 @@ import { Workspace } from "../models/Workspace";
 import { getIo } from "../socket";
 import { parseMentions } from "../utils/mentions";
 import { ensureStreamChannelForDirectMessage } from "../services/streamChatService";
+import { sendExpoPush } from "../services/expoPushService";
 
 export const createDirectMessageBodySchema = z.object({
   userId: z.string().optional(), // For 1:1 DM
@@ -863,6 +864,23 @@ export async function createDirectMessageContent(
     const participantIds = (dm.participants as any[]).map((p) => String(p.userId));
     for (const pid of participantIds) {
       getIo().to(`dm:${pid}`).emit("receive-dm-message", { message: dto });
+    }
+
+    try {
+      const notifyIds = participantIds.filter((id) => id && id !== req.userId);
+      if (notifyIds.length > 0) {
+        const recipients = await User.find({ _id: { $in: notifyIds } }).select({ expoPushTokens: 1 }).lean();
+        const tokens = recipients.flatMap((u: any) => (Array.isArray(u.expoPushTokens) ? u.expoPushTokens : [])).map(String);
+        const bodyText = trimmed.length > 0 ? trimmed.slice(0, 140) : "New message";
+        await sendExpoPush(tokens, {
+          title: String((sender as any)?.name ?? "New message"),
+          body: bodyText,
+          data: { kind: "dm", dmId: String((dm as any)._id), messageId: String((content as any)._id) },
+          channelId: "default",
+        });
+      }
+    } catch {
+      // ignore
     }
 
     res.status(201).json({ id: String(content._id), message: dto });

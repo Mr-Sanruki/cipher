@@ -13,7 +13,10 @@ import {
   verifyTwoFa,
   disableTwoFa,
   verifyEmailChange,
+  registerExpoPushToken,
+  registerExpoPushTokenBodySchema,
 } from "../controllers/userController";
+import { validateBody } from "../middleware/validation";
 
 const router = Router();
 
@@ -33,5 +36,7 @@ router.post("/sessions/revoke-others", requireAuth, revokeAllOtherSessions);
 router.post("/2fa/setup", requireAuth, setupTwoFa);
 router.post("/2fa/verify", requireAuth, verifyTwoFa);
 router.post("/2fa/disable", requireAuth, disableTwoFa);
+
+router.post("/push-token", requireAuth, validateBody(registerExpoPushTokenBodySchema), registerExpoPushToken);
 
 export default router;

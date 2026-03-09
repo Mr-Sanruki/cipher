@@ -1816,7 +1816,7 @@ export default function DmChatScreen(): JSX.Element {
         ref={listRef}
         data={filteredMessages}
         keyExtractor={(item) => item._id}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12 }}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12, paddingBottom: 110 }}
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
           <FadeIn>
@@ -1839,15 +1839,18 @@ export default function DmChatScreen(): JSX.Element {
                     ? "rgba(37,211,102,0.22)"
                     : "rgba(37,211,102,0.14)"
                   : isMine
-                    ? "#075e54"
-                    : "rgba(255,255,255,0.06)",
+                    ? "rgba(7,94,84,0.92)"
+                    : "rgba(255,255,255,0.055)",
                 paddingHorizontal: 12,
                 paddingVertical: 10,
-                borderRadius: 12,
+                borderTopLeftRadius: 18,
+                borderTopRightRadius: 18,
+                borderBottomLeftRadius: isMine ? 18 : 8,
+                borderBottomRightRadius: isMine ? 8 : 18,
                 marginBottom: 10,
                 maxWidth: "86%",
                 borderWidth: isSelected ? 1 : 0,
-                borderColor: isSelected ? "rgba(37,211,102,0.55)" : "transparent",
+                borderColor: isSelected ? "rgba(37,211,102,0.55)" : isMine ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.10)",
               }}
             >
               <Pressable

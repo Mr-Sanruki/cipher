@@ -13,8 +13,25 @@
     }
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "context/**/*.ts",
+    "context/**/*.tsx",
+    "hooks/**/*.ts",
+    "hooks/**/*.tsx",
+    "services/**/*.ts",
+    "services/**/*.tsx",
+    "types/**/*.ts",
+    "utils/**/*.ts",
     "nativewind-env.d.ts"
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "node_modules",
+    "android",
+    "dist",
+    "build"
   ]
 }

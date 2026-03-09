@@ -907,7 +907,7 @@ export default function ChatHomeScreenNative(): JSX.Element {
       <FlatList
         data={listData}
         keyExtractor={(item: any) => (activeTab === "all" ? String(item.key) : String(item._id))}
-        contentContainerStyle={{ paddingVertical: 8 }}
+        contentContainerStyle={{ paddingVertical: 8, paddingBottom: 120 }}
         refreshing={isBusy}
         onRefresh={() => {
           void reloadLists();
@@ -943,11 +943,14 @@ export default function ChatHomeScreenNative(): JSX.Element {
                 router.push({ pathname: "/(app)/chat/dm/[dmId]", params: { dmId: String(item._id) } });
               }}
               style={({ pressed }) => ({
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                backgroundColor: pressed ? "rgba(255,255,255,0.06)" : "transparent",
-                borderBottomWidth: 1,
-                borderBottomColor: "rgba(255,255,255,0.06)",
+                marginHorizontal: 12,
+                marginVertical: 6,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                borderRadius: 18,
+                backgroundColor: pressed ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.045)",
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.08)",
               })}
             >
               {(() => {
@@ -972,7 +975,7 @@ export default function ChatHomeScreenNative(): JSX.Element {
                     justifyContent: "center",
                   }}
                 >
-                  <Text style={{ color: "rgba(0,0,0,0.78)", fontWeight: "900" }}>
+                  <Text style={{ color: "rgba(0,0,0,0.78)", fontWeight: "900", fontSize: 16 }}>
                     {activeTab === "channels"
                       ? firstInitial(String(item.name ?? ""))
                       : activeTab === "all"
@@ -986,7 +989,7 @@ export default function ChatHomeScreenNative(): JSX.Element {
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text style={{ color: Colors.dark.textPrimary, fontWeight: "700" }} numberOfLines={1}>
+                    <Text style={{ color: Colors.dark.textPrimary, fontWeight: "800" }} numberOfLines={1}>
                       {activeTab === "channels"
                         ? String(item.name ?? "")
                         : activeTab === "all"
@@ -1012,8 +1015,12 @@ export default function ChatHomeScreenNative(): JSX.Element {
                         : activeTab === "all"
                           ? item.kind === "channel"
                             ? lastByChannelId[(item.item as ChannelDto)._id]?.text ?? (item.item as ChannelDto).description ?? ""
-                            : "Tap to open"
-                          : "Tap to open"}
+                            : item.kind === "group"
+                              ? "Group chat"
+                              : "Direct message"
+                          : activeTab === "groups"
+                            ? "Group chat"
+                            : "Direct message"}
                     </Text>
                     {activeTab === "channels" && unreadCount > 0 ? (
                       <Pop>

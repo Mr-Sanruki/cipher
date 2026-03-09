@@ -14,7 +14,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { FadeIn } from "../../components/FadeIn";
 import { PremiumModal } from "../../components/PremiumModal";
 import { uploadFile } from "../../services/files";
-import { getJson, setJson } from "../../services/storage";
+import { getItem, getJson, setJson } from "../../services/storage";
 import { getActiveWorkspaceId, setActiveWorkspaceId } from "../../services/workspaceSelection";
 import { deleteWorkspace, listWorkspaces, updateWorkspace } from "../../services/workspaces";
 import { listWorkspaceMembers } from "../../services/workspaceMembers";
@@ -117,6 +117,10 @@ export default function SettingsScreen(): JSX.Element {
   const [dndFrom, setDndFrom] = useState("22:00");
   const [dndTo, setDndTo] = useState("07:00");
   const [notifySoundName, setNotifySoundName] = useState<"default" | "subtle" | "silent">("default");
+
+  const [pushPermStatus, setPushPermStatus] = useState<string>("unknown");
+  const [pushToken, setPushToken] = useState<string>("");
+  const [pushBusy, setPushBusy] = useState(false);
 
   const [debugLogs, setDebugLogs] = useState(false);
 
@@ -506,6 +510,26 @@ export default function SettingsScreen(): JSX.Element {
       return false;
     }
   }, []);
+
+  const refreshPushStatus = useCallback(async () => {
+    setPrefsError(null);
+    setPushBusy(true);
+    try {
+      const perms = await Notifications.getPermissionsAsync();
+      setPushPermStatus(String(perms.status ?? "unknown"));
+      const saved = (await getItem("cipher.expoPushToken")) ?? "";
+      setPushToken(String(saved));
+    } catch {
+      setPushPermStatus("unknown");
+      setPushToken("");
+    } finally {
+      setPushBusy(false);
+    }
+  }, [setPrefsError]);
+
+  useEffect(() => {
+    void refreshPushStatus();
+  }, [refreshPushStatus]);
 
   const copy = useCallback(async (value: string) => {
     try {
@@ -1834,6 +1858,49 @@ export default function SettingsScreen(): JSX.Element {
         </Section>
 
         <Section title="Notifications">
+          <Row
+            title="Push permission"
+            value={pushPermStatus === "granted" ? "Allowed" : pushPermStatus === "denied" ? "Denied" : "Not set"}
+            right={
+              <Text style={{ color: pushPermStatus === "granted" ? Colors.primaryBlue : Colors.dark.textSecondary, fontWeight: "900" }}>
+                {pushPermStatus === "granted" ? "OK" : "Fix"}
+              </Text>
+            }
+            onPress={() => {
+              setPrefsError(null);
+              ensureNotificationReady()
+                .then(() => refreshPushStatus())
+                .catch(() => {
+                  // ignore
+                });
+            }}
+          />
+
+          <Separator />
+
+          <Row
+            title="Push token"
+            value={pushToken ? "Tap to copy" : pushBusy ? "Loading..." : "Not registered"}
+            disabled={!pushToken}
+            onPress={() => {
+              if (pushToken) void copy(pushToken);
+            }}
+            right={<Text style={{ color: pushToken ? Colors.primaryBlue : Colors.dark.textSecondary, fontWeight: "900" }}>Copy</Text>}
+          />
+
+          <Separator />
+
+          <PremiumButton
+            title={pushBusy ? "Refreshing..." : "Refresh push status"}
+            variant="secondary"
+            disabled={prefsBusy || pushBusy}
+            onPress={() => {
+              if (!pushBusy) void refreshPushStatus();
+            }}
+          />
+
+          <Separator />
+
           <Row
             title="All notifications"
             value={notifyAll ? "On" : "Off"}

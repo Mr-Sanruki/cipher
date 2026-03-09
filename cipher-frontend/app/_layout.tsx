@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { NativeWindStyleSheet } from "nativewind";
 import { Stack, router, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Text, View } from "react-native";
 import { AuthProvider } from "../context/AuthContext";
 import { useAuth } from "../hooks/useAuth";
+import * as Notifications from "expo-notifications";
+import { parsePushRoute, registerExpoPushToken } from "../services/pushNotifications";
 
 NativeWindStyleSheet.setOutput({ web: "native", default: "native" });
 
@@ -70,6 +72,8 @@ export default function RootLayout(): JSX.Element {
 function RootLayoutNav(): JSX.Element {
   const { status, token } = useAuth();
   const segments = useSegments();
+  const notifSubRef = useRef<Notifications.Subscription | null>(null);
+  const notifResponseSubRef = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -85,6 +89,42 @@ function RootLayoutNav(): JSX.Element {
       router.replace("/(app)/chat");
     }
   }, [segments, status, token]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    registerExpoPushToken().catch(() => {
+      // ignore
+    });
+
+    notifSubRef.current?.remove();
+    notifResponseSubRef.current?.remove();
+
+    notifSubRef.current = Notifications.addNotificationReceivedListener(() => {
+      // no-op (handled by OS)
+    });
+
+    notifResponseSubRef.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      try {
+        const data = (response as any)?.notification?.request?.content?.data;
+        const route = parsePushRoute(data);
+        if (route.kind === "dm") {
+          router.push(`/(app)/chat/dm/${route.dmId}` as any);
+        } else if (route.kind === "channel") {
+          router.push(`/(app)/chat/${route.channelId}` as any);
+        }
+      } catch {
+        // ignore
+      }
+    });
+
+    return () => {
+      notifSubRef.current?.remove();
+      notifSubRef.current = null;
+      notifResponseSubRef.current?.remove();
+      notifResponseSubRef.current = null;
+    };
+  }, [status]);
 
   return (
     <>
