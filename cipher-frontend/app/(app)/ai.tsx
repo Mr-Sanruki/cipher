@@ -63,7 +63,12 @@ try {
 }
 
 function toErrorMessage(error: unknown): string {
-  return typeof (error as any)?.message === "string" ? String((error as any).message) : "Request failed";
+  const status = Number((error as any)?.status ?? (error as any)?.response?.status ?? 0);
+  const msg = typeof (error as any)?.message === "string" ? String((error as any).message) : "";
+  if (status === 429 || msg.includes("429")) {
+    return "AI is temporarily unavailable (quota/rate limit). Try again, or switch provider.";
+  }
+  return msg || "Request failed";
 }
 
 function normalizeForShare(text: string): string {
@@ -589,6 +594,14 @@ export default function AiScreen(): JSX.Element {
     const modelTrimmed = model.trim();
     const requestMessages = [...messages, nextUser].map((m) => ({ role: m.role as any, content: m.content }));
 
+    let workspaceId = "";
+    try {
+      const wid = await getActiveWorkspaceId();
+      workspaceId = String(wid ?? "");
+    } catch {
+      workspaceId = "";
+    }
+
     try {
       if (streaming) {
         let content = "";
@@ -597,8 +610,23 @@ export default function AiScreen(): JSX.Element {
             provider,
             model: modelTrimmed ? modelTrimmed : undefined,
             messages: requestMessages,
+            workspaceId,
           },
           onEvent: (event) => {
+            if (event.type === "meta") {
+              try {
+                if (event.provider === "openai" || event.provider === "grok") {
+                  setProvider(event.provider);
+                }
+                if (typeof event.model === "string") {
+                  setModel(event.model);
+                }
+              } catch {
+                // ignore
+              }
+              return;
+            }
+
             if (event.type === "delta") {
               content += event.delta;
               setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content } : m)));
@@ -606,7 +634,7 @@ export default function AiScreen(): JSX.Element {
             }
 
             if (event.type === "error") {
-              setError(event.message);
+              setError(toErrorMessage({ message: event.message }));
             }
           },
         });
@@ -615,6 +643,7 @@ export default function AiScreen(): JSX.Element {
           provider,
           model: modelTrimmed ? modelTrimmed : undefined,
           messages: requestMessages,
+          workspaceId,
         });
 
         setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: res.message.content } : m)));

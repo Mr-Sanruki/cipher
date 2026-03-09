@@ -16,6 +16,7 @@ export type AiChatRequest = {
   messages: AiChatMessage[];
   temperature?: number;
   maxTokens?: number;
+  workspaceId?: string;
 };
 
 export type AiChatResponse = {

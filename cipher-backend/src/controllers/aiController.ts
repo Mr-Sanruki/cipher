@@ -4,6 +4,9 @@ import OpenAI from "openai";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { HttpError } from "../middleware/errorHandler";
 import { env } from "../config/env";
+import { requireWorkspaceMember } from "../utils/access";
+import { Channel } from "../models/Channel";
+import { User } from "../models/User";
 
 type Provider = "openai" | "grok";
 
@@ -25,6 +28,7 @@ export const aiChatBodySchema = z.object({
   messages: z.array(aiChatMessageSchema).min(1),
   temperature: z.coerce.number().min(0).max(2).optional(),
   maxTokens: z.coerce.number().int().positive().optional(),
+  workspaceId: z.string().optional().default(""),
 });
 
 type AiChatBody = z.infer<typeof aiChatBodySchema>;
@@ -64,6 +68,57 @@ function normalizeMessages(messages: AiChatMessage[]): { role: ChatRole; content
   return messages.map((m) => ({ role: m.role, content: m.content }));
 }
 
+function isQuotaOrRateLimit(error: unknown): boolean {
+  const status = Number((error as any)?.status ?? (error as any)?.response?.status ?? 0);
+  if (status === 429 || status === 402) return true;
+
+  const code = String((error as any)?.code ?? "").toLowerCase();
+  if (code.includes("rate") || code.includes("quota")) return true;
+
+  const msg = String((error as any)?.message ?? "").toLowerCase();
+  if (msg.includes("rate limit") || msg.includes("quota") || msg.includes("insufficient_quota")) return true;
+
+  return false;
+}
+
+async function buildWorkspaceContext(input: { userId: string; workspaceId: string }): Promise<string> {
+  const wid = String(input.workspaceId ?? "").trim();
+  if (!wid) return "";
+
+  const { workspace } = await requireWorkspaceMember({ userId: input.userId, workspaceId: wid });
+  const [me, channels] = await Promise.all([
+    User.findById(input.userId).select({ name: 1, email: 1 }).lean(),
+    Channel.find({ workspaceId: workspace._id }).select({ name: 1, description: 1, isPrivate: 1 }).lean(),
+  ]);
+
+  const channelNames = channels
+    .map((c: any) => String(c.name ?? "").trim())
+    .filter(Boolean)
+    .slice(0, 25);
+  const privateCount = channels.filter((c: any) => !!c.isPrivate).length;
+  const publicCount = Math.max(0, channels.length - privateCount);
+  const memberCount = Array.isArray((workspace as any).members) ? (workspace as any).members.length : 0;
+
+  const parts: string[] = [];
+  parts.push("You are Cipher AI inside a team workspace.");
+  if (me) {
+    const nm = String((me as any).name ?? "").trim();
+    const em = String((me as any).email ?? "").trim();
+    if (nm || em) parts.push(`Current user: ${[nm, em].filter(Boolean).join(" ")}`.trim());
+  }
+  parts.push(`Workspace: ${String((workspace as any).name ?? "Workspace").trim()}`);
+  const desc = String((workspace as any).description ?? "").trim();
+  if (desc) parts.push(`Workspace description: ${desc}`);
+  parts.push(`Members: ${memberCount}`);
+  parts.push(`Channels: ${channels.length} (public: ${publicCount}, private: ${privateCount})`);
+  if (channelNames.length > 0) parts.push(`Channel list (partial): ${channelNames.join(", ")}`);
+  parts.push(
+    "Use this workspace context to answer. You can summarize the workspace, create documentation, propose structure, and reference channels/members when relevant.",
+  );
+
+  return parts.join("\n");
+}
+
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return "Request failed";
@@ -72,24 +127,48 @@ function errorMessage(error: unknown): string {
 export async function chat(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const body = aiChatBodySchema.parse(req.body);
-    const { client, defaultModel } = resolveClient(body.provider);
-    const model = resolveModel(body, defaultModel);
 
-    const completion = await client.chat.completions.create({
-      model,
-      messages: normalizeMessages(body.messages) as any,
-      temperature: body.temperature,
-      max_tokens: body.maxTokens,
-    });
+    const wsContext = await buildWorkspaceContext({ userId: req.userId, workspaceId: body.workspaceId });
+    const messages = wsContext
+      ? ([{ role: "system", content: wsContext } as const, ...normalizeMessages(body.messages)] as any)
+      : (normalizeMessages(body.messages) as any);
 
-    const content = completion.choices[0]?.message?.content ?? "";
+    const providers: Provider[] = body.provider === "openai" ? ["openai", "grok"] : ["grok", "openai"];
+    let lastError: unknown = null;
+    for (const provider of providers) {
+      try {
+        const { client, defaultModel } = resolveClient(provider);
+        const model = resolveModel(body, defaultModel);
 
-    res.json({
-      provider: body.provider,
-      model,
-      message: { role: "assistant", content },
-      usage: completion.usage ?? null,
-    });
+        const completion = await client.chat.completions.create({
+          model,
+          messages,
+          temperature: body.temperature,
+          max_tokens: body.maxTokens,
+        });
+
+        const content = completion.choices[0]?.message?.content ?? "";
+
+        res.json({
+          provider,
+          model,
+          message: { role: "assistant", content },
+          usage: completion.usage ?? null,
+        });
+        return;
+      } catch (error) {
+        lastError = error;
+        if (!isQuotaOrRateLimit(error)) {
+          throw error;
+        }
+      }
+    }
+
+    throw new HttpError(
+      429,
+      "AI provider quota exceeded. Please try again later or switch provider.",
+      { reason: "quota", message: errorMessage(lastError) },
+    );
   } catch (error) {
     next(error);
   }
@@ -98,8 +177,12 @@ export async function chat(req: AuthenticatedRequest, res: Response, next: NextF
 export async function chatStream(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const body = aiChatBodySchema.parse(req.body);
-    const { client, defaultModel } = resolveClient(body.provider);
-    const model = resolveModel(body, defaultModel);
+    const wsContext = await buildWorkspaceContext({ userId: req.userId, workspaceId: body.workspaceId });
+    const messages = wsContext
+      ? ([{ role: "system", content: wsContext } as const, ...normalizeMessages(body.messages)] as any)
+      : (normalizeMessages(body.messages) as any);
+
+    const providers: Provider[] = body.provider === "openai" ? ["openai", "grok"] : ["grok", "openai"];
 
     res.status(200);
     res.setHeader("Content-Type", "text/event-stream");
@@ -113,27 +196,49 @@ export async function chatStream(req: AuthenticatedRequest, res: Response, next:
     req.on("close", onClose);
 
     try {
-      const stream = await client.chat.completions.create(
-        {
-          model,
-          messages: normalizeMessages(body.messages) as any,
-          temperature: body.temperature,
-          max_tokens: body.maxTokens,
-          stream: true,
-        },
-        { signal: abortController.signal }
-      );
+      let started = false;
+      let lastError: unknown = null;
 
-      res.write(`data: ${JSON.stringify({ type: "meta", provider: body.provider, model })}\n\n`);
+      for (const provider of providers) {
+        try {
+          const { client, defaultModel } = resolveClient(provider);
+          const model = resolveModel(body, defaultModel);
+          const stream = await client.chat.completions.create(
+            {
+              model,
+              messages,
+              temperature: body.temperature,
+              max_tokens: body.maxTokens,
+              stream: true,
+            },
+            { signal: abortController.signal }
+          );
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content;
-        if (typeof delta === "string" && delta.length > 0) {
-          res.write(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`);
+          started = true;
+          res.write(`data: ${JSON.stringify({ type: "meta", provider, model })}\n\n`);
+
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            if (typeof delta === "string" && delta.length > 0) {
+              res.write(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`);
+            }
+          }
+
+          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+          return;
+        } catch (error) {
+          lastError = error;
+          if (!started && isQuotaOrRateLimit(error)) {
+            continue;
+          }
+          throw error;
         }
       }
 
-      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+      throw new HttpError(429, "AI provider quota exceeded. Please try again later or switch provider.", {
+        reason: "quota",
+        message: errorMessage(lastError),
+      });
     } catch (error) {
       if (!abortController.signal.aborted && !res.writableEnded) {
         res.write(`data: ${JSON.stringify({ type: "error", message: errorMessage(error) })}\n\n`);
