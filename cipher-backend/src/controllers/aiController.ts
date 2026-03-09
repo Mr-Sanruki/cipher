@@ -1,6 +1,7 @@
 import type { Response, NextFunction } from "express";
 import { z } from "zod";
 import OpenAI from "openai";
+import Ollama from "ollama";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { HttpError } from "../middleware/errorHandler";
 import { env } from "../config/env";
@@ -8,7 +9,7 @@ import { requireWorkspaceMember } from "../utils/access";
 import { Channel } from "../models/Channel";
 import { User } from "../models/User";
 
-type Provider = "openai" | "grok";
+type Provider = "openai" | "grok" | "ollama";
 
 type ChatRole = "system" | "user" | "assistant";
 
@@ -23,7 +24,7 @@ const aiChatMessageSchema = z.object({
 });
 
 export const aiChatBodySchema = z.object({
-  provider: z.enum(["openai", "grok"]).optional().default("openai"),
+  provider: z.enum(["openai", "grok", "ollama"]).optional().default("openai"),
   model: z.string().optional(),
   messages: z.array(aiChatMessageSchema).min(1),
   temperature: z.coerce.number().min(0).max(2).optional(),
@@ -33,30 +34,24 @@ export const aiChatBodySchema = z.object({
 
 type AiChatBody = z.infer<typeof aiChatBodySchema>;
 
-function resolveClient(provider: Provider): { client: OpenAI; defaultModel: string } {
+function resolveClient(provider: Provider): { client: OpenAI | Ollama; defaultModel: string } {
+  if (provider === "ollama") {
+    return { client: new Ollama({ host: env.OLLAMA_BASE_URL }), defaultModel: env.OLLAMA_MODEL };
+  }
   if (provider === "grok") {
     const apiKey = env.GROK_API_KEY.trim();
     if (!apiKey) {
       throw new HttpError(400, "GROK_API_KEY is not configured");
     }
-
     const baseURL = env.GROK_BASE_URL.trim() || "https://api.x.ai/v1";
-
-    return {
-      client: new OpenAI({ apiKey, baseURL }),
-      defaultModel: "grok-2-latest",
-    };
+    return { client: new OpenAI({ apiKey, baseURL }), defaultModel: "grok-2-latest" };
   }
-
+  // openai
   const apiKey = env.OPENAI_API_KEY.trim();
   if (!apiKey) {
     throw new HttpError(400, "OPENAI_API_KEY is not configured");
   }
-
-  return {
-    client: new OpenAI({ apiKey }),
-    defaultModel: "gpt-4o-mini",
-  };
+  return { client: new OpenAI({ apiKey }), defaultModel: "gpt-4o-mini" };
 }
 
 function resolveModel(body: AiChatBody, defaultModel: string): string {
@@ -136,20 +131,30 @@ export async function chat(req: AuthenticatedRequest, res: Response, next: NextF
     const { client, defaultModel } = resolveClient(body.provider);
     const model = resolveModel(body, defaultModel);
 
-    const completion = await client.chat.completions.create({
-      model,
-      messages,
-      temperature: body.temperature,
-      max_tokens: body.maxTokens,
-    });
-
-    const content = completion.choices[0]?.message?.content ?? "";
+    let content = "";
+    if (body.provider === "ollama") {
+      const ollamaResp = await (client as Ollama).chat({
+        model,
+        messages: messages as any,
+        stream: false,
+        options: { temperature: body.temperature },
+      });
+      content = ollamaResp.message.content;
+    } else {
+      const completion = await (client as OpenAI).chat.completions.create({
+        model,
+        messages,
+        temperature: body.temperature,
+        max_tokens: body.maxTokens,
+      });
+      content = completion.choices[0]?.message?.content ?? "";
+    }
 
     res.json({
       provider: body.provider,
       model,
       message: { role: "assistant", content },
-      usage: completion.usage ?? null,
+      usage: null, // Ollama doesn't return usage in this lib
     });
   } catch (error) {
     next(error);
@@ -179,27 +184,41 @@ export async function chatStream(req: AuthenticatedRequest, res: Response, next:
     req.on("close", onClose);
 
     try {
-      const stream = await client.chat.completions.create(
-        {
+      if (body.provider === "ollama") {
+        const streamResponse = await (client as Ollama).chat({
           model,
-          messages,
-          temperature: body.temperature,
-          max_tokens: body.maxTokens,
+          messages: messages as any,
           stream: true,
-        },
-        { signal: abortController.signal }
-      );
-
-      res.write(`data: ${JSON.stringify({ type: "meta", provider: body.provider, model })}\n\n`);
-
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content;
-        if (typeof delta === "string" && delta.length > 0) {
-          res.write(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`);
+          options: { temperature: body.temperature },
+        });
+        res.write(`data: ${JSON.stringify({ type: "meta", provider: body.provider, model })}\n\n`);
+        for await (const part of streamResponse) {
+          const delta = part.message?.content;
+          if (typeof delta === "string" && delta.length > 0) {
+            res.write(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`);
+          }
         }
+        res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+      } else {
+        const stream = await (client as OpenAI).chat.completions.create(
+          {
+            model,
+            messages,
+            temperature: body.temperature,
+            max_tokens: body.maxTokens,
+            stream: true,
+          },
+          { signal: abortController.signal }
+        );
+        res.write(`data: ${JSON.stringify({ type: "meta", provider: body.provider, model })}\n\n`);
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta?.content;
+          if (typeof delta === "string" && delta.length > 0) {
+            res.write(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`);
+          }
+        }
+        res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
       }
-
-      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
     } catch (error) {
       if (!abortController.signal.aborted && !res.writableEnded) {
         res.write(`data: ${JSON.stringify({ type: "error", message: errorMessage(error) })}\n\n`);

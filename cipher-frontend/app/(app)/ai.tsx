@@ -154,7 +154,7 @@ export default function AiScreen(): JSX.Element {
       const cached = await getJson<CachedAiConversation>(CACHE_KEY);
       if (!cached || cached.version !== 1) return;
 
-      if (cached.provider === "openai" || cached.provider === "grok") {
+      if (cached.provider === "openai" || cached.provider === "grok" || cached.provider === "ollama") {
         setProvider(cached.provider);
       }
 
@@ -615,7 +615,7 @@ export default function AiScreen(): JSX.Element {
           onEvent: (event) => {
             if (event.type === "meta") {
               try {
-                if (event.provider === "openai" || event.provider === "grok") {
+                if (event.provider === "openai" || event.provider === "grok" || event.provider === "ollama") {
                   setProvider(event.provider);
                 }
                 if (typeof event.model === "string") {
@@ -840,13 +840,25 @@ export default function AiScreen(): JSX.Element {
 
             <Pressable
               onPress={() => setProvider("grok")}
-              className="rounded-full px-3 py-1"
+              className="mr-2 rounded-full px-3 py-1"
               style={{ backgroundColor: provider === "grok" ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.08)" }}
               accessibilityRole="button"
               accessibilityLabel="Use Grok"
             >
               <Text className="text-white" style={{ opacity: 0.95 }}>
                 Grok
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setProvider("ollama")}
+              className="rounded-full px-3 py-1"
+              style={{ backgroundColor: provider === "ollama" ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.08)" }}
+              accessibilityRole="button"
+              accessibilityLabel="Use Ollama (local)"
+            >
+              <Text className="text-white" style={{ opacity: 0.95 }}>
+                Ollama
               </Text>
             </Pressable>
 
@@ -867,7 +879,13 @@ export default function AiScreen(): JSX.Element {
             <TextInput
               value={model}
               onChangeText={setModel}
-              placeholder={provider === "openai" ? "Model (default gpt-4o-mini)" : "Model (default grok-2-latest)"}
+              placeholder={
+                provider === "openai"
+                  ? "Model (default gpt-4o-mini)"
+                  : provider === "grok"
+                  ? "Model (default grok-2-latest)"
+                  : "Model (default llama3.2:3b)"
+              }
               placeholderTextColor="rgba(255,255,255,0.6)"
               autoCapitalize="none"
               className="h-11 text-white"
