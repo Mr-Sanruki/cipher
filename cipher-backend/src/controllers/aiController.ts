@@ -23,7 +23,7 @@ const aiChatMessageSchema = z.object({
 });
 
 export const aiChatBodySchema = z.object({
-  provider: z.enum(["openai", "grok"]).optional().default("openai"),
+  provider: z.enum(["openai", "grok"]).optional().default("grok"),
   model: z.string().optional(),
   messages: z.array(aiChatMessageSchema).min(1),
   temperature: z.coerce.number().min(0).max(2).optional(),
