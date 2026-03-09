@@ -133,42 +133,24 @@ export async function chat(req: AuthenticatedRequest, res: Response, next: NextF
       ? ([{ role: "system", content: wsContext } as const, ...normalizeMessages(body.messages)] as any)
       : (normalizeMessages(body.messages) as any);
 
-    const providers: Provider[] = body.provider === "openai" ? ["openai", "grok"] : ["grok", "openai"];
-    let lastError: unknown = null;
-    for (const provider of providers) {
-      try {
-        const { client, defaultModel } = resolveClient(provider);
-        const model = resolveModel(body, defaultModel);
+    const { client, defaultModel } = resolveClient(body.provider);
+    const model = resolveModel(body, defaultModel);
 
-        const completion = await client.chat.completions.create({
-          model,
-          messages,
-          temperature: body.temperature,
-          max_tokens: body.maxTokens,
-        });
+    const completion = await client.chat.completions.create({
+      model,
+      messages,
+      temperature: body.temperature,
+      max_tokens: body.maxTokens,
+    });
 
-        const content = completion.choices[0]?.message?.content ?? "";
+    const content = completion.choices[0]?.message?.content ?? "";
 
-        res.json({
-          provider,
-          model,
-          message: { role: "assistant", content },
-          usage: completion.usage ?? null,
-        });
-        return;
-      } catch (error) {
-        lastError = error;
-        if (!isQuotaOrRateLimit(error)) {
-          throw error;
-        }
-      }
-    }
-
-    throw new HttpError(
-      429,
-      "AI provider quota exceeded. Please try again later or switch provider.",
-      { reason: "quota", message: errorMessage(lastError) },
-    );
+    res.json({
+      provider: body.provider,
+      model,
+      message: { role: "assistant", content },
+      usage: completion.usage ?? null,
+    });
   } catch (error) {
     next(error);
   }
@@ -182,7 +164,8 @@ export async function chatStream(req: AuthenticatedRequest, res: Response, next:
       ? ([{ role: "system", content: wsContext } as const, ...normalizeMessages(body.messages)] as any)
       : (normalizeMessages(body.messages) as any);
 
-    const providers: Provider[] = body.provider === "openai" ? ["openai", "grok"] : ["grok", "openai"];
+    const { client, defaultModel } = resolveClient(body.provider);
+    const model = resolveModel(body, defaultModel);
 
     res.status(200);
     res.setHeader("Content-Type", "text/event-stream");
@@ -196,49 +179,27 @@ export async function chatStream(req: AuthenticatedRequest, res: Response, next:
     req.on("close", onClose);
 
     try {
-      let started = false;
-      let lastError: unknown = null;
+      const stream = await client.chat.completions.create(
+        {
+          model,
+          messages,
+          temperature: body.temperature,
+          max_tokens: body.maxTokens,
+          stream: true,
+        },
+        { signal: abortController.signal }
+      );
 
-      for (const provider of providers) {
-        try {
-          const { client, defaultModel } = resolveClient(provider);
-          const model = resolveModel(body, defaultModel);
-          const stream = await client.chat.completions.create(
-            {
-              model,
-              messages,
-              temperature: body.temperature,
-              max_tokens: body.maxTokens,
-              stream: true,
-            },
-            { signal: abortController.signal }
-          );
+      res.write(`data: ${JSON.stringify({ type: "meta", provider: body.provider, model })}\n\n`);
 
-          started = true;
-          res.write(`data: ${JSON.stringify({ type: "meta", provider, model })}\n\n`);
-
-          for await (const chunk of stream) {
-            const delta = chunk.choices[0]?.delta?.content;
-            if (typeof delta === "string" && delta.length > 0) {
-              res.write(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`);
-            }
-          }
-
-          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-          return;
-        } catch (error) {
-          lastError = error;
-          if (!started && isQuotaOrRateLimit(error)) {
-            continue;
-          }
-          throw error;
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (typeof delta === "string" && delta.length > 0) {
+          res.write(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`);
         }
       }
 
-      throw new HttpError(429, "AI provider quota exceeded. Please try again later or switch provider.", {
-        reason: "quota",
-        message: errorMessage(lastError),
-      });
+      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
     } catch (error) {
       if (!abortController.signal.aborted && !res.writableEnded) {
         res.write(`data: ${JSON.stringify({ type: "error", message: errorMessage(error) })}\n\n`);
