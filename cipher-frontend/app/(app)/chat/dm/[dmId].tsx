@@ -1922,9 +1922,9 @@ export default function DmChatScreen(): JSX.Element {
                 ) : null}
 
                 {poll && Array.isArray(poll.options) && poll.options.length > 0 ? (
-                  <View style={{ marginBottom: item.text ? 8 : 0 }}>
-                    <Text style={{ color: Colors.dark.textPrimary, fontWeight: "900", marginBottom: 8 }}>{poll.question}</Text>
-                    <View style={{ gap: 8 }}>
+                  <View style={{ marginBottom: item.text ? 8 : 0, alignSelf: "stretch" }}>
+                    <Text style={{ color: Colors.dark.textPrimary, fontWeight: "900", marginBottom: 8, flexShrink: 1 }}>{poll.question}</Text>
+                    <View style={{ gap: 8, alignSelf: "stretch" }}>
                       {poll.options.map((o, idx) => {
                         const votes = Array.isArray(o?.votes) ? o.votes : [];
                         const selected = idx === myVoteIndex;
@@ -1943,6 +1943,7 @@ export default function DmChatScreen(): JSX.Element {
                               })();
                             }}
                             style={({ pressed }) => ({
+                              width: "100%",
                               paddingHorizontal: 10,
                               paddingVertical: 9,
                               borderRadius: 12,
@@ -1955,9 +1956,11 @@ export default function DmChatScreen(): JSX.Element {
                               borderColor: selected ? "rgba(37,211,102,0.55)" : "rgba(255,255,255,0.10)",
                             })}
                           >
-                            <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
-                              <Text style={{ color: Colors.dark.textPrimary, flex: 1 }}>{o.text}</Text>
-                              <Text style={{ color: Colors.dark.textSecondary }}>{votes.length}</Text>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                              <Text style={{ color: Colors.dark.textPrimary, flex: 1, flexShrink: 1 }} numberOfLines={2}>
+                                {o.text}
+                              </Text>
+                              <Text style={{ color: Colors.dark.textSecondary, minWidth: 24, textAlign: "right" }}>{votes.length}</Text>
                             </View>
                           </Pressable>
                         );
