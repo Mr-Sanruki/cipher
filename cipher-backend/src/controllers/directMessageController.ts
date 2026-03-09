@@ -876,7 +876,7 @@ export async function createDirectMessageContent(
           title: String((sender as any)?.name ?? "New message"),
           body: bodyText,
           data: { kind: "dm", dmId: String((dm as any)._id), messageId: String((content as any)._id) },
-          channelId: "default",
+          channelId: "messages",
         });
       }
     } catch {

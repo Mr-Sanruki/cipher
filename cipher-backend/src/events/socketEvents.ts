@@ -7,6 +7,7 @@ import { User } from "../models/User";
 import { Workspace } from "../models/Workspace";
 import { verifyAccessToken } from "../utils/jwt";
 import { logger } from "../utils/logger";
+import { sendExpoPush } from "../services/expoPushService";
 
 type AuthedSocket = Socket & { data: { userId: string } };
 
@@ -108,6 +109,28 @@ export function registerSocketEvents(io: SocketIOServer): void {
 
         io.to(`dm:${toUserId}`).emit("call-incoming", { callId, dmId, type, fromUserId: userId, toUserId });
         io.to(`dm:${userId}`).emit("call-incoming", { callId, dmId, type, fromUserId: userId, toUserId });
+
+        try {
+          const [fromUser, toUser] = await Promise.all([
+            User.findById(userId).select({ name: 1 }).lean(),
+            User.findById(toUserId).select({ expoPushTokens: 1 }).lean(),
+          ]);
+
+          const tokens = Array.isArray((toUser as any)?.expoPushTokens) ? ((toUser as any).expoPushTokens as any[]).map(String) : [];
+          const callerName = String((fromUser as any)?.name ?? "Someone").trim() || "Someone";
+          const title = type === "video" ? "Incoming video call" : "Incoming call";
+          const body = `${callerName} is calling you`;
+
+          await sendExpoPush(tokens, {
+            title,
+            body,
+            data: { kind: "call", callId, dmId, type, fromUserId: userId, toUserId },
+            channelId: "calls",
+            priority: "high",
+          });
+        } catch {
+          // ignore push failures
+        }
 
         ack?.({ ok: true });
       } catch (error) {

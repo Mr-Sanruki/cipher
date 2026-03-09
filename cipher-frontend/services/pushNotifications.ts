@@ -20,11 +20,25 @@ export async function configureNotifications(): Promise<void> {
   });
 
   if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("default", {
-      name: "Default",
+    await Notifications.setNotificationChannelAsync("messages", {
+      name: "Messages",
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#5865F2",
+      sound: "default",
+    });
+
+    await Notifications.setNotificationChannelAsync("calls", {
+      name: "Calls",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#25D366",
+      sound: "default",
+    });
+
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "Default",
+      importance: Notifications.AndroidImportance.DEFAULT,
       sound: "default",
     });
   }
@@ -62,6 +76,7 @@ export async function registerExpoPushToken(): Promise<string | null> {
 export type PushRoute =
   | { kind: "dm"; dmId: string }
   | { kind: "channel"; channelId: string }
+  | { kind: "call"; callId: string; dmId: string; type: "voice" | "video"; fromUserId: string; toUserId: string }
   | { kind: "unknown" };
 
 export function parsePushRoute(data: unknown): PushRoute {
@@ -73,6 +88,16 @@ export function parsePushRoute(data: unknown): PushRoute {
   if (kind === "channel") {
     const channelId = String((data as any)?.channelId ?? "").trim();
     if (channelId) return { kind: "channel", channelId };
+  }
+  if (kind === "call") {
+    const callId = String((data as any)?.callId ?? "").trim();
+    const dmId = String((data as any)?.dmId ?? "").trim();
+    const type = (String((data as any)?.type ?? "voice") === "video" ? "video" : "voice") as "voice" | "video";
+    const fromUserId = String((data as any)?.fromUserId ?? "").trim();
+    const toUserId = String((data as any)?.toUserId ?? "").trim();
+    if (callId && dmId && fromUserId && toUserId) {
+      return { kind: "call", callId, dmId, type, fromUserId, toUserId };
+    }
   }
   return { kind: "unknown" };
 }

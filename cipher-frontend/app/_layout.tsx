@@ -112,6 +112,18 @@ function RootLayoutNav(): JSX.Element {
           router.push(`/(app)/chat/dm/${route.dmId}` as any);
         } else if (route.kind === "channel") {
           router.push(`/(app)/chat/${route.channelId}` as any);
+        } else if (route.kind === "call") {
+          router.push({
+            pathname: "/(app)/call/[callId]",
+            params: {
+              callId: route.callId,
+              dmId: route.dmId,
+              type: route.type,
+              fromUserId: route.fromUserId,
+              toUserId: route.toUserId,
+              direction: "incoming",
+            },
+          } as any);
         }
       } catch {
         // ignore

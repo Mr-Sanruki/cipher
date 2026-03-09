@@ -75,13 +75,20 @@ function isSignal(value: unknown): value is CallSignal {
 }
 
 export default function CallScreen(): JSX.Element {
-  const params = useLocalSearchParams<{ callId?: string }>();
+  const params = useLocalSearchParams<{
+    callId?: string;
+    dmId?: string;
+    type?: string;
+    fromUserId?: string;
+    toUserId?: string;
+    direction?: string;
+  }>();
   const callId = String(params.callId ?? "");
 
   const navigation = useNavigation();
 
   const { socket, status: socketStatus } = useSocket();
-  const { activeCall, status: callStatus, endCall } = useCall();
+  const { activeCall, status: callStatus, endCall, acceptCall, rejectCall } = useCall();
   const { user } = useAuth();
 
   const [streamClient, setStreamClient] = useState<any | null>(null);
@@ -104,13 +111,15 @@ export default function CallScreen(): JSX.Element {
   const [otherAvatar, setOtherAvatar] = useState<string>("");
   const [elapsedSec, setElapsedSec] = useState<number>(0);
 
-  const callType: CallType = (activeCall?.type ?? "voice") as CallType;
-  const isInitiator = activeCall?.direction === "outgoing";
+  const paramType: CallType = (String(params.type ?? "") === "video" ? "video" : "voice") as CallType;
+  const paramDirection = String(params.direction ?? "");
+  const callType: CallType = (activeCall?.type ?? paramType ?? "voice") as CallType;
+  const isInitiator = activeCall?.direction === "outgoing" || paramDirection === "outgoing";
   const myUserId = user?._id ?? "";
 
   useEffect(() => {
     let mounted = true;
-    const dmId = String(activeCall?.dmId ?? "");
+    const dmId = String(activeCall?.dmId ?? params.dmId ?? "");
     if (!dmId) return;
 
     void (async () => {
@@ -130,7 +139,7 @@ export default function CallScreen(): JSX.Element {
     return () => {
       mounted = false;
     };
-  }, [activeCall?.dmId, myUserId]);
+  }, [activeCall?.dmId, myUserId, params.dmId]);
 
   useEffect(() => {
     if (callStatus !== "active") {
@@ -347,10 +356,48 @@ export default function CallScreen(): JSX.Element {
 
   const unavailable = Platform.OS === "web" || !streamClient || !streamCall;
 
+  const showIncomingOverlay = useMemo(() => {
+    if (connected) return false;
+    if (isInitiator) return false;
+    if (activeCall && activeCall.callId === callId) {
+      return activeCall.direction === "incoming" && callStatus === "ringing";
+    }
+    return paramDirection === "incoming";
+  }, [activeCall, callId, callStatus, connected, isInitiator, paramDirection]);
+
+  const onDecline = useCallback(() => {
+    if (activeCall && activeCall.callId === callId) {
+      rejectCall();
+      return;
+    }
+    onHangup();
+  }, [activeCall, callId, onHangup, rejectCall]);
+
+  const onJoin = useCallback(() => {
+    if (activeCall && activeCall.callId === callId) {
+      acceptCall();
+      return;
+    }
+    // If opened via push before socket event set activeCall, show screen anyway.
+    // User will be able to join once the in-app call state arrives.
+  }, [acceptCall, activeCall, callId]);
+
   return (
     <PremiumScreen padded={false} topPadding={0}>
-      <View style={{ paddingTop: 52, paddingHorizontal: 14, paddingBottom: 10, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <Pressable onPress={onHangup} style={{ padding: 10 }}>
+      <View
+        style={{
+          paddingTop: 52,
+          paddingHorizontal: 14,
+          paddingBottom: 10,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottomWidth: 1,
+          borderBottomColor: "rgba(255,255,255,0.08)",
+          backgroundColor: "rgba(0,0,0,0.18)",
+        }}
+      >
+        <Pressable onPress={onHangup} style={({ pressed }) => ({ padding: 10, opacity: pressed ? 0.7 : 1 })}>
           <Ionicons name="chevron-back" size={24} color="white" />
         </Pressable>
         <View style={{ alignItems: "center" }}>
@@ -419,6 +466,55 @@ export default function CallScreen(): JSX.Element {
         </View>
       ) : null}
 
+      {showIncomingOverlay ? (
+        <View
+          style={{
+            position: "absolute",
+            left: 12,
+            right: 12,
+            bottom: 120,
+            padding: 12,
+            borderRadius: 16,
+            backgroundColor: "rgba(0,0,0,0.55)",
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.12)",
+          }}
+        >
+          <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 12 }} numberOfLines={1}>
+            Incoming {callType === "video" ? "video" : "voice"} call
+          </Text>
+          <Text style={{ color: "white", fontWeight: "900", marginTop: 2 }} numberOfLines={1}>
+            {otherName || "Caller"}
+          </Text>
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+            <Pressable
+              onPress={onDecline}
+              style={({ pressed }) => ({
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 999,
+                alignItems: "center",
+                backgroundColor: pressed ? "rgba(255,59,48,0.7)" : "rgba(255,59,48,1)",
+              })}
+            >
+              <Text style={{ color: "white", fontWeight: "900" }}>Decline</Text>
+            </Pressable>
+            <Pressable
+              onPress={onJoin}
+              style={({ pressed }) => ({
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 999,
+                alignItems: "center",
+                backgroundColor: pressed ? "rgba(37,211,102,0.78)" : "rgba(37,211,102,1)",
+              })}
+            >
+              <Text style={{ color: "white", fontWeight: "900" }}>Join</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
       {debugOpen ? (
         <View
           style={{
@@ -438,64 +534,108 @@ export default function CallScreen(): JSX.Element {
         </View>
       ) : null}
 
-      <View style={{ paddingHorizontal: 16, paddingBottom: 26, paddingTop: 14, flexDirection: "row", justifyContent: "space-between", gap: 10, backgroundColor: "rgba(0,0,0,0.25)" }}>
+      <View
+        style={{
+          paddingHorizontal: 18,
+          paddingBottom: 26,
+          paddingTop: 14,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          gap: 16,
+          backgroundColor: "rgba(0,0,0,0.25)",
+          borderTopWidth: 1,
+          borderTopColor: "rgba(255,255,255,0.08)",
+        }}
+      >
         {callType === "video" ? (
-          <Pressable
-            onPress={() => {
-              try {
-                const c = streamCallRef.current;
-                if (!c?.screenShare || typeof c.screenShare.toggle !== "function") {
-                  setShareUnsupported(true);
-                  setError("Screen share is not supported on this device/build.");
-                  return;
+          <View style={{ flex: 1, alignItems: "center" }}>
+            <Pressable
+              onPress={() => {
+                try {
+                  const c = streamCallRef.current;
+                  if (!c?.screenShare || typeof c.screenShare.toggle !== "function") {
+                    setShareUnsupported(true);
+                    setError("Screen share is not supported on this device/build.");
+                    return;
+                  }
+                  void c.screenShare.toggle();
+                  setSharing((v) => !v);
+                } catch {
+                  setError("Screen share failed");
                 }
-                void c.screenShare.toggle();
-                setSharing((v) => !v);
-              } catch {
-                setError("Screen share failed");
-              }
-            }}
+              }}
+              style={({ pressed }) => ({
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: busy || shareUnsupported ? "rgba(255,255,255,0.06)" : pressed ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.12)",
+                opacity: busy || shareUnsupported ? 0.7 : 1,
+              })}
+            >
+              <Ionicons name={sharing ? "stop-circle" : "share-outline"} size={22} color="white" />
+            </Pressable>
+            <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 6, fontWeight: "800" }}>
+              {sharing ? "Stop" : "Share"}
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Pressable
+            onPress={toggleMute}
             style={({ pressed }) => ({
-              flex: 1,
-              paddingVertical: 12,
-              borderRadius: 999,
-              backgroundColor: busy || shareUnsupported ? "rgba(255,255,255,0.06)" : pressed ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.12)",
+              width: 56,
+              height: 56,
+              borderRadius: 28,
               alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: pressed ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.12)",
             })}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, opacity: busy || shareUnsupported ? 0.6 : 1 }}>
-              <Ionicons name={sharing ? "stop-circle" : "share-outline"} size={20} color="white" />
-              <Text style={{ color: "white", fontWeight: "800" }}>{sharing ? "Stop" : "Share"}</Text>
-            </View>
+            <Ionicons name={muted ? "mic-off" : "mic"} size={22} color="white" />
           </Pressable>
-        ) : null}
-        <Pressable
-          onPress={toggleMute}
-          style={({ pressed }) => ({ flex: 1, paddingVertical: 12, borderRadius: 999, backgroundColor: pressed ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.12)", alignItems: "center" })}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Ionicons name={muted ? "mic-off" : "mic"} size={18} color="white" />
-            <Text style={{ color: "white", fontWeight: "800" }}>{muted ? "Unmute" : "Mute"}</Text>
-          </View>
-        </Pressable>
-        <Pressable
-          onPress={toggleSpeaker}
-          style={({ pressed }) => ({ flex: 1, paddingVertical: 12, borderRadius: 999, backgroundColor: pressed ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.12)", alignItems: "center" })}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Ionicons name={speaker ? "volume-high" : "ear"} size={18} color="white" />
-            <Text style={{ color: "white", fontWeight: "800" }}>{speaker ? "Speaker" : "Earpiece"}</Text>
-          </View>
-        </Pressable>
-        <Pressable
-          onPress={onHangup}
-          style={({ pressed }) => ({ flex: 1, paddingVertical: 12, borderRadius: 999, backgroundColor: pressed ? "rgba(255,59,48,0.7)" : "rgba(255,59,48,1)", alignItems: "center" })}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Ionicons name="call" size={18} color="white" />
-            <Text style={{ color: "white", fontWeight: "900" }}>End</Text>
-          </View>
-        </Pressable>
+          <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 6, fontWeight: "800" }}>
+            {muted ? "Unmute" : "Mute"}
+          </Text>
+        </View>
+
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Pressable
+            onPress={toggleSpeaker}
+            style={({ pressed }) => ({
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: pressed ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.12)",
+            })}
+          >
+            <Ionicons name={speaker ? "volume-high" : "ear"} size={22} color="white" />
+          </Pressable>
+          <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 6, fontWeight: "800" }}>
+            {speaker ? "Speaker" : "Earpiece"}
+          </Text>
+        </View>
+
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Pressable
+            onPress={onHangup}
+            style={({ pressed }) => ({
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: pressed ? "rgba(255,59,48,0.7)" : "rgba(255,59,48,1)",
+            })}
+          >
+            <Ionicons name="call" size={22} color="white" />
+          </Pressable>
+          <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 12, marginTop: 6, fontWeight: "900" }}>End</Text>
+        </View>
       </View>
 
       {shareUnsupported ? (

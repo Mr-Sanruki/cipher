@@ -154,7 +154,7 @@ export async function createMessage(
           title,
           body: bodyText,
           data: { kind: "channel", channelId: String((channel as any)._id), messageId: String((message as any)._id) },
-          channelId: "default",
+          channelId: "messages",
         });
       }
     } catch {

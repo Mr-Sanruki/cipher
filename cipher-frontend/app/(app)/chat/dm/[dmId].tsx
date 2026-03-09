@@ -2016,6 +2016,7 @@ export default function DmChatScreen(): JSX.Element {
           flexDirection: "row",
           gap: 10,
           alignItems: "flex-end",
+          backgroundColor: "rgba(0,0,0,0.22)",
         }}
       >
         <Pressable
@@ -2027,11 +2028,11 @@ export default function DmChatScreen(): JSX.Element {
             borderRadius: 20,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: pressed ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.06)",
+            backgroundColor: pressed ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
             opacity: isUploading ? 0.6 : 1,
           })}
         >
-          <Text style={{ color: Colors.dark.textPrimary, fontSize: 22, lineHeight: 22 }}>+</Text>
+          <Ionicons name="add" size={22} color={Colors.dark.textPrimary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           {uploadStatus ? (
@@ -2085,13 +2086,44 @@ export default function DmChatScreen(): JSX.Element {
             </ScrollView>
           ) : null}
           {replyTo ? (
-            <View style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, marginBottom: 8, backgroundColor: "rgba(255,255,255,0.06)" }}>
-              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12 }} numberOfLines={1}>
-                Replying to {replyTo.sender?.name ?? ""}
-              </Text>
-              <Text style={{ color: Colors.dark.textPrimary, fontSize: 12 }} numberOfLines={1}>
-                {replyTo.text}
-              </Text>
+            <View
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+                borderRadius: 12,
+                marginBottom: 8,
+                backgroundColor: "rgba(255,255,255,0.06)",
+                borderWidth: 1,
+                borderColor: "rgba(37,211,102,0.35)",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 12 }} numberOfLines={1}>
+                  Replying to {replyTo.sender?.name ?? ""}
+                </Text>
+                <Text style={{ color: Colors.dark.textPrimary, fontSize: 12 }} numberOfLines={1}>
+                  {replyTo.text}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setReplyTo(null)}
+                hitSlop={12}
+                pressRetentionOffset={12}
+                style={({ pressed }) => ({
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pressed ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)",
+                })}
+              >
+                <Ionicons name="close" size={18} color={Colors.dark.textSecondary} />
+              </Pressable>
             </View>
           ) : null}
           <TextInput
@@ -2103,8 +2135,8 @@ export default function DmChatScreen(): JSX.Element {
             editable={!isUploading}
             style={{
               color: Colors.dark.textPrimary,
-              backgroundColor: "rgba(255,255,255,0.06)",
-              borderRadius: 16,
+              backgroundColor: "rgba(255,255,255,0.08)",
+              borderRadius: 18,
               paddingHorizontal: 12,
               paddingVertical: 10,
               maxHeight: 120,
@@ -2116,13 +2148,21 @@ export default function DmChatScreen(): JSX.Element {
           disabled={isUploading}
           onPress={() => void uploadAndSendPending()}
           style={({ pressed }) => ({
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            borderRadius: 16,
-            backgroundColor: isUploading ? "rgba(37,211,102,0.25)" : pressed ? "rgba(37,211,102,0.7)" : "rgba(37,211,102,1)",
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: isUploading ? "rgba(37,211,102,0.25)" : pressed ? "rgba(37,211,102,0.78)" : "rgba(37,211,102,1)",
+            opacity: isUploading ? 0.85 : 1,
           })}
         >
-          <Text style={{ color: "white", fontWeight: "700" }}>{isUploading ? "Uploading..." : editingId ? "Update" : "Send"}</Text>
+          <Ionicons
+            name={editingId ? "checkmark" : "send"}
+            size={18}
+            color={"white"}
+            style={{ marginLeft: editingId ? 0 : 2 }}
+          />
         </Pressable>
       </View>
     </KeyboardAvoidingView>
