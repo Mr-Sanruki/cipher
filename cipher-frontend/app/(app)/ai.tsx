@@ -115,7 +115,7 @@ function parseAiAttachmentsFromMessage(content: string): {
 export default function AiScreen(): JSX.Element {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
-  const [provider, setProvider] = useState<AiProvider>("openai");
+  const [provider, setProvider] = useState<AiProvider>("groq");
   const [model, setModel] = useState<string>("");
   const [streaming, setStreaming] = useState<boolean>(true);
   const [busy, setBusy] = useState<boolean>(false);
@@ -827,8 +827,20 @@ export default function AiScreen(): JSX.Element {
 
           <View className="mt-3 flex-row items-center" style={{ gap: 10, flexWrap: "wrap" }}>
             <Pressable
-              onPress={() => setProvider("openai")}
+              onPress={() => setProvider("groq")}
               className="mr-2 rounded-full px-3 py-1"
+              style={{ backgroundColor: provider === "groq" ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.08)" }}
+              accessibilityRole="button"
+              accessibilityLabel="Use Groq"
+            >
+              <Text className="text-white" style={{ opacity: 0.95 }}>
+                Groq
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setProvider("openai")}
+              className="rounded-full px-3 py-1"
               style={{ backgroundColor: provider === "openai" ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.08)" }}
               accessibilityRole="button"
               accessibilityLabel="Use OpenAI"
@@ -867,7 +879,13 @@ export default function AiScreen(): JSX.Element {
             <TextInput
               value={model}
               onChangeText={setModel}
-              placeholder={provider === "openai" ? "Model (default gpt-4o-mini)" : "Model (default grok-2-latest)"}
+              placeholder={
+                provider === "groq"
+                  ? "Model (default llama-3.1-8b-instant)"
+                  : provider === "openai"
+                    ? "Model (default gpt-4o-mini)"
+                    : "Model (default grok-2-latest)"
+              }
               placeholderTextColor="rgba(255,255,255,0.6)"
               autoCapitalize="none"
               className="h-11 text-white"
