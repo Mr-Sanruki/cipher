@@ -154,7 +154,7 @@ export default function AiScreen(): JSX.Element {
       const cached = await getJson<CachedAiConversation>(CACHE_KEY);
       if (!cached || cached.version !== 1) return;
 
-      if (cached.provider === "openai" || cached.provider === "grok") {
+      if (cached.provider === "openai" || cached.provider === "groq" || cached.provider === "grok") {
         setProvider(cached.provider);
       }
 
@@ -615,7 +615,7 @@ export default function AiScreen(): JSX.Element {
           onEvent: (event) => {
             if (event.type === "meta") {
               try {
-                if (event.provider === "openai" || event.provider === "grok") {
+                if (event.provider === "openai" || event.provider === "groq" || event.provider === "grok") {
                   setProvider(event.provider);
                 }
                 if (typeof event.model === "string") {

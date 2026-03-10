@@ -2006,15 +2006,6 @@ export default function DmChatScreen(): JSX.Element {
                               );
                             })}
                           </View>
-
-                          <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.10)" }}>
-                            <Pressable
-                              onPress={() => Alert.alert("Votes", "Detailed vote breakdown is not available yet.")}
-                              style={({ pressed }) => ({ paddingVertical: 10, opacity: pressed ? 0.7 : 1 })}
-                            >
-                              <Text style={{ color: "rgba(37,211,102,1)", fontWeight: "900", fontSize: 18, textAlign: "center" }}>View votes</Text>
-                            </Pressable>
-                          </View>
                         </>
                       );
                     })()}

@@ -20,6 +20,8 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional().default(""),
   CLOUDINARY_API_SECRET: z.string().optional().default(""),
   OPENAI_API_KEY: z.string().optional().default(""),
+  GROQ_API_KEY: z.string().optional().default(""),
+  GROQ_BASE_URL: z.string().optional().default(""),
   GROK_API_KEY: z.string().optional().default(""),
   GROK_BASE_URL: z.string().optional().default(""),
   STREAM_API_KEY: z.string().optional().default(""),

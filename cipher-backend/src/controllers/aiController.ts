@@ -8,7 +8,7 @@ import { requireWorkspaceMember } from "../utils/access";
 import { Channel } from "../models/Channel";
 import { User } from "../models/User";
 
-type Provider = "openai" | "grok";
+type Provider = "openai" | "groq" | "grok";
 
 type ChatRole = "system" | "user" | "assistant";
 
@@ -23,7 +23,7 @@ const aiChatMessageSchema = z.object({
 });
 
 export const aiChatBodySchema = z.object({
-  provider: z.enum(["openai", "grok"]).optional().default("openai"),
+  provider: z.enum(["openai", "groq", "grok"]).optional(),
   model: z.string().optional(),
   messages: z.array(aiChatMessageSchema).min(1),
   temperature: z.coerce.number().min(0).max(2).optional(),
@@ -33,7 +33,32 @@ export const aiChatBodySchema = z.object({
 
 type AiChatBody = z.infer<typeof aiChatBodySchema>;
 
+function defaultProvider(): Provider {
+  if (env.GROQ_API_KEY.trim()) return "groq";
+  return "openai";
+}
+
+function resolveProvider(body: AiChatBody): Provider {
+  const p = (body.provider ?? "").trim() as Provider;
+  if (p === "groq" || p === "grok" || p === "openai") return p;
+  return defaultProvider();
+}
+
 function resolveClient(provider: Provider): { client: OpenAI; defaultModel: string } {
+  if (provider === "groq") {
+    const apiKey = env.GROQ_API_KEY.trim();
+    if (!apiKey) {
+      throw new HttpError(400, "GROQ_API_KEY is not configured");
+    }
+
+    const baseURL = env.GROQ_BASE_URL.trim() || "https://api.groq.com/openai/v1";
+
+    return {
+      client: new OpenAI({ apiKey, baseURL }),
+      defaultModel: "llama-3.1-8b-instant",
+    };
+  }
+
   if (provider === "grok") {
     const apiKey = env.GROK_API_KEY.trim();
     if (!apiKey) {
@@ -50,6 +75,10 @@ function resolveClient(provider: Provider): { client: OpenAI; defaultModel: stri
 
   const apiKey = env.OPENAI_API_KEY.trim();
   if (!apiKey) {
+    // prefer Groq if configured, otherwise error
+    if (env.GROQ_API_KEY.trim()) {
+      return resolveClient("groq");
+    }
     throw new HttpError(400, "OPENAI_API_KEY is not configured");
   }
 
@@ -133,7 +162,8 @@ export async function chat(req: AuthenticatedRequest, res: Response, next: NextF
       ? ([{ role: "system", content: wsContext } as const, ...normalizeMessages(body.messages)] as any)
       : (normalizeMessages(body.messages) as any);
 
-    const { client, defaultModel } = resolveClient(body.provider);
+    const provider = resolveProvider(body);
+    const { client, defaultModel } = resolveClient(provider);
     const model = resolveModel(body, defaultModel);
 
     const completion = await client.chat.completions.create({
@@ -146,7 +176,7 @@ export async function chat(req: AuthenticatedRequest, res: Response, next: NextF
     const content = completion.choices[0]?.message?.content ?? "";
 
     res.json({
-      provider: body.provider,
+      provider,
       model,
       message: { role: "assistant", content },
       usage: completion.usage ?? null,
@@ -164,7 +194,8 @@ export async function chatStream(req: AuthenticatedRequest, res: Response, next:
       ? ([{ role: "system", content: wsContext } as const, ...normalizeMessages(body.messages)] as any)
       : (normalizeMessages(body.messages) as any);
 
-    const { client, defaultModel } = resolveClient(body.provider);
+    const provider = resolveProvider(body);
+    const { client, defaultModel } = resolveClient(provider);
     const model = resolveModel(body, defaultModel);
 
     res.status(200);
@@ -190,7 +221,7 @@ export async function chatStream(req: AuthenticatedRequest, res: Response, next:
         { signal: abortController.signal }
       );
 
-      res.write(`data: ${JSON.stringify({ type: "meta", provider: body.provider, model })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: "meta", provider, model })}\n\n`);
 
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta?.content;
