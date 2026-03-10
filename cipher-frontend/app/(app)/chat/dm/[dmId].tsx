@@ -1923,49 +1923,103 @@ export default function DmChatScreen(): JSX.Element {
 
                 {poll && Array.isArray(poll.options) && poll.options.length > 0 ? (
                   <View style={{ marginBottom: item.text ? 8 : 0, alignSelf: "stretch" }}>
-                    <Text style={{ color: Colors.dark.textPrimary, fontWeight: "900", marginBottom: 8, flexShrink: 1 }}>{poll.question}</Text>
-                    <View style={{ gap: 8, alignSelf: "stretch" }}>
-                      {poll.options.map((o, idx) => {
-                        const votes = Array.isArray(o?.votes) ? o.votes : [];
-                        const selected = idx === myVoteIndex;
-                        return (
-                          <Pressable
-                            key={`${item._id}_opt_${idx}`}
-                            disabled={!myUserId}
-                            onPress={() => {
-                              void (async () => {
-                                try {
-                                  const updated = await voteDmMessagePoll({ messageId: item._id, optionIndex: idx });
-                                  upsertMessage(updated);
-                                } catch {
-                                  // ignore
-                                }
-                              })();
-                            }}
-                            style={({ pressed }) => ({
-                              width: "100%",
-                              paddingHorizontal: 10,
-                              paddingVertical: 9,
-                              borderRadius: 12,
-                              backgroundColor: selected
-                                ? "rgba(37,211,102,0.22)"
-                                : pressed
-                                  ? "rgba(255,255,255,0.10)"
-                                  : "rgba(0,0,0,0.18)",
-                              borderWidth: 1,
-                              borderColor: selected ? "rgba(37,211,102,0.55)" : "rgba(255,255,255,0.10)",
+                    {(() => {
+                      const totalVotes = (poll.options ?? []).reduce((acc, opt) => acc + (Array.isArray((opt as any)?.votes) ? (opt as any).votes.length : 0), 0);
+                      return (
+                        <>
+                          <Text style={{ color: Colors.dark.textPrimary, fontWeight: "900", fontSize: 16, marginBottom: 6, flexShrink: 1 }}>
+                            {poll.question}
+                          </Text>
+                          <Text style={{ color: "rgba(255,255,255,0.6)", marginBottom: 10, flexShrink: 1 }} numberOfLines={1}>
+                            Select one
+                          </Text>
+
+                          <View style={{ gap: 14, alignSelf: "stretch" }}>
+                            {poll.options.map((o, idx) => {
+                              const votes = Array.isArray(o?.votes) ? o.votes : [];
+                              const selected = idx === myVoteIndex;
+                              const pct = totalVotes > 0 ? votes.length / totalVotes : 0;
+                              return (
+                                <Pressable
+                                  key={`${item._id}_opt_${idx}`}
+                                  disabled={!myUserId}
+                                  onPress={() => {
+                                    void (async () => {
+                                      try {
+                                        const updated = await voteDmMessagePoll({ messageId: item._id, optionIndex: idx });
+                                        upsertMessage(updated);
+                                      } catch {
+                                        // ignore
+                                      }
+                                    })();
+                                  }}
+                                  style={({ pressed }) => ({
+                                    width: "100%",
+                                    paddingHorizontal: 6,
+                                    paddingVertical: 2,
+                                    borderRadius: 14,
+                                    opacity: pressed ? 0.9 : 1,
+                                  })}
+                                >
+                                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+                                      <View
+                                        style={{
+                                          width: 22,
+                                          height: 22,
+                                          borderRadius: 11,
+                                          borderWidth: 2,
+                                          borderColor: selected ? "rgba(37,211,102,1)" : "rgba(255,255,255,0.35)",
+                                          backgroundColor: selected ? "rgba(37,211,102,1)" : "transparent",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                        }}
+                                      >
+                                        {selected ? <Ionicons name="checkmark" size={14} color="#083b2a" /> : null}
+                                      </View>
+                                      <Text style={{ color: Colors.dark.textPrimary, fontWeight: "800", fontSize: 16, flex: 1, flexShrink: 1 }} numberOfLines={2}>
+                                        {o.text}
+                                      </Text>
+                                    </View>
+                                    <Text style={{ color: "rgba(255,255,255,0.75)", fontWeight: "800", minWidth: 26, textAlign: "right" }}>
+                                      {votes.length}
+                                    </Text>
+                                  </View>
+
+                                  <View
+                                    style={{
+                                      height: 10,
+                                      borderRadius: 999,
+                                      backgroundColor: "rgba(255,255,255,0.12)",
+                                      overflow: "hidden",
+                                      marginTop: 10,
+                                      marginLeft: 34,
+                                    }}
+                                  >
+                                    <View
+                                      style={{
+                                        height: "100%",
+                                        width: `${Math.round(pct * 100)}%`,
+                                        backgroundColor: "rgba(37,211,102,1)",
+                                      }}
+                                    />
+                                  </View>
+                                </Pressable>
+                              );
                             })}
-                          >
-                            <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                              <Text style={{ color: Colors.dark.textPrimary, flex: 1, flexShrink: 1 }} numberOfLines={2}>
-                                {o.text}
-                              </Text>
-                              <Text style={{ color: Colors.dark.textSecondary, minWidth: 24, textAlign: "right" }}>{votes.length}</Text>
-                            </View>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
+                          </View>
+
+                          <View style={{ marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.10)" }}>
+                            <Pressable
+                              onPress={() => Alert.alert("Votes", "Detailed vote breakdown is not available yet.")}
+                              style={({ pressed }) => ({ paddingVertical: 8, opacity: pressed ? 0.7 : 1 })}
+                            >
+                              <Text style={{ color: "rgba(37,211,102,1)", fontWeight: "900", fontSize: 18, textAlign: "center" }}>View votes</Text>
+                            </Pressable>
+                          </View>
+                        </>
+                      );
+                    })()}
                   </View>
                 ) : null}
 
