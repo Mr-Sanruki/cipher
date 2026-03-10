@@ -1922,7 +1922,7 @@ export default function DmChatScreen(): JSX.Element {
                 ) : null}
 
                 {poll && Array.isArray(poll.options) && poll.options.length > 0 ? (
-                  <View style={{ marginBottom: item.text ? 8 : 0, alignSelf: "stretch" }}>
+                  <View style={{ marginBottom: item.text ? 8 : 0, alignSelf: "stretch", minWidth: 260, maxWidth: "100%" }}>
                     {(() => {
                       const totalVotes = (poll.options ?? []).reduce((acc, opt) => acc + (Array.isArray((opt as any)?.votes) ? (opt as any).votes.length : 0), 0);
                       return (
@@ -1931,7 +1931,7 @@ export default function DmChatScreen(): JSX.Element {
                             {poll.question}
                           </Text>
                           <Text style={{ color: "rgba(255,255,255,0.6)", marginBottom: 10, flexShrink: 1 }} numberOfLines={1}>
-                            Select one
+                            Select one or more
                           </Text>
 
                           <View style={{ gap: 14, alignSelf: "stretch" }}>
@@ -1955,10 +1955,8 @@ export default function DmChatScreen(): JSX.Element {
                                   }}
                                   style={({ pressed }) => ({
                                     width: "100%",
-                                    paddingHorizontal: 6,
-                                    paddingVertical: 2,
-                                    borderRadius: 14,
-                                    opacity: pressed ? 0.9 : 1,
+                                    paddingVertical: 0,
+                                    opacity: pressed ? 0.85 : 1,
                                   })}
                                 >
                                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -1988,11 +1986,11 @@ export default function DmChatScreen(): JSX.Element {
 
                                   <View
                                     style={{
-                                      height: 10,
+                                      height: 6,
                                       borderRadius: 999,
-                                      backgroundColor: "rgba(255,255,255,0.12)",
+                                      backgroundColor: "rgba(255,255,255,0.16)",
                                       overflow: "hidden",
-                                      marginTop: 10,
+                                      marginTop: 8,
                                       marginLeft: 34,
                                     }}
                                   >
@@ -2000,7 +1998,7 @@ export default function DmChatScreen(): JSX.Element {
                                       style={{
                                         height: "100%",
                                         width: `${Math.round(pct * 100)}%`,
-                                        backgroundColor: "rgba(37,211,102,1)",
+                                        backgroundColor: "rgba(37,211,102,0.95)",
                                       }}
                                     />
                                   </View>
@@ -2009,10 +2007,10 @@ export default function DmChatScreen(): JSX.Element {
                             })}
                           </View>
 
-                          <View style={{ marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.10)" }}>
+                          <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.10)" }}>
                             <Pressable
                               onPress={() => Alert.alert("Votes", "Detailed vote breakdown is not available yet.")}
-                              style={({ pressed }) => ({ paddingVertical: 8, opacity: pressed ? 0.7 : 1 })}
+                              style={({ pressed }) => ({ paddingVertical: 10, opacity: pressed ? 0.7 : 1 })}
                             >
                               <Text style={{ color: "rgba(37,211,102,1)", fontWeight: "900", fontSize: 18, textAlign: "center" }}>View votes</Text>
                             </Pressable>
