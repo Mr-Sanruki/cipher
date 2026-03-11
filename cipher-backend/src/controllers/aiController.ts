@@ -115,10 +115,16 @@ async function buildWorkspaceContext(input: { userId: string; workspaceId: strin
   if (!wid) return "";
 
   const { workspace } = await requireWorkspaceMember({ userId: input.userId, workspaceId: wid });
-  const [me, channels] = await Promise.all([
+  const memberEntries = Array.isArray((workspace as any).members) ? ((workspace as any).members as any[]) : [];
+  const memberIds = memberEntries.map((m) => String(m.userId)).filter(Boolean);
+
+  const [me, channels, members] = await Promise.all([
     User.findById(input.userId).select({ name: 1, email: 1 }).lean(),
     Channel.find({ workspaceId: workspace._id }).select({ name: 1, description: 1, isPrivate: 1 }).lean(),
+    memberIds.length > 0 ? User.find({ _id: { $in: memberIds } }).select({ name: 1, email: 1 }).lean() : Promise.resolve([] as any[]),
   ]);
+
+  const memberUserMap = new Map((members as any[]).map((u: any) => [String(u._id), u]));
 
   const channelNames = channels
     .map((c: any) => String(c.name ?? "").trim())
@@ -126,7 +132,18 @@ async function buildWorkspaceContext(input: { userId: string; workspaceId: strin
     .slice(0, 25);
   const privateCount = channels.filter((c: any) => !!c.isPrivate).length;
   const publicCount = Math.max(0, channels.length - privateCount);
-  const memberCount = Array.isArray((workspace as any).members) ? (workspace as any).members.length : 0;
+  const memberCount = memberEntries.length;
+  const memberList = memberEntries
+    .map((m) => {
+      const u = memberUserMap.get(String(m.userId));
+      const nm = String((u as any)?.name ?? "").trim();
+      const em = String((u as any)?.email ?? "").trim();
+      const label = nm || em ? [nm, em].filter(Boolean).join(" ") : `User ${String(m.userId).slice(-6)}`;
+      const role = String(m.role ?? "member");
+      return `${label} (${role})`;
+    })
+    .filter(Boolean)
+    .slice(0, 25);
 
   const parts: string[] = [];
   parts.push("You are Cipher AI inside a team workspace.");
@@ -139,6 +156,7 @@ async function buildWorkspaceContext(input: { userId: string; workspaceId: strin
   const desc = String((workspace as any).description ?? "").trim();
   if (desc) parts.push(`Workspace description: ${desc}`);
   parts.push(`Members: ${memberCount}`);
+  if (memberList.length > 0) parts.push(`Member list (partial): ${memberList.join(", ")}`);
   parts.push(`Channels: ${channels.length} (public: ${publicCount}, private: ${privateCount})`);
   if (channelNames.length > 0) parts.push(`Channel list (partial): ${channelNames.join(", ")}`);
   parts.push(
