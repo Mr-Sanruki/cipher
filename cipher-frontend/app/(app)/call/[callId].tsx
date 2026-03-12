@@ -64,6 +64,54 @@ function toErrorMessage(error: unknown): string {
   return typeof (error as any)?.message === "string" ? String((error as any).message) : "Request failed";
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timeoutId: any;
+  const timeoutPromise = new Promise<T>((_resolve, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    try {
+      clearTimeout(timeoutId);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function shouldRetry(error: unknown): boolean {
+  const msg = String((error as any)?.message ?? "").toLowerCase();
+  return msg.includes("pending") || msg.includes("another operation") || msg.includes("in progress");
+}
+
+function hasScreenShare(localParticipant: any): boolean {
+  try {
+    const tracks = (localParticipant as any)?.videoTracks ?? (localParticipant as any)?.tracks ?? [];
+    if (Array.isArray(tracks)) {
+      return tracks.some((t: any) => String(t?.type ?? "").toLowerCase().includes("screen"));
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const publishedTracks = (localParticipant as any)?.publishedTracks;
+    if (publishedTracks && typeof publishedTracks === "object") {
+      return Object.values(publishedTracks).some((t: any) => String((t as any)?.trackType ?? (t as any)?.type ?? "").toLowerCase().includes("screen"));
+    }
+  } catch {
+    // ignore
+  }
+
+  return false;
+}
+
 function isSignal(value: unknown): value is CallSignal {
   const t = (value as any)?.type;
   if (t !== "offer" && t !== "answer" && t !== "candidate") return false;
@@ -106,6 +154,7 @@ export default function CallScreen(): JSX.Element {
   const [speaker, setSpeaker] = useState<boolean>(false);
   const [sharing, setSharing] = useState<boolean>(false);
   const [shareUnsupported, setShareUnsupported] = useState<boolean>(false);
+  const shareInFlightRef = useRef(false);
 
   const [otherName, setOtherName] = useState<string>("");
   const [otherAvatar, setOtherAvatar] = useState<string>("");
@@ -552,16 +601,145 @@ export default function CallScreen(): JSX.Element {
             <Pressable
               onPress={() => {
                 try {
+                  if (busy || shareUnsupported || shareInFlightRef.current) return;
                   const c = streamCallRef.current;
-                  if (!c?.screenShare || typeof c.screenShare.toggle !== "function") {
+                  if (!c?.screenShare) {
                     setShareUnsupported(true);
                     setError("Screen share is not supported on this device/build.");
                     return;
                   }
-                  void c.screenShare.toggle();
-                  setSharing((v) => !v);
-                } catch {
-                  setError("Screen share failed");
+
+                  shareInFlightRef.current = true;
+                  setBusy(true);
+                  setError(null);
+
+                  void (async () => {
+                    let watchdog: any = null;
+                    try {
+                      watchdog = setTimeout(() => {
+                        try {
+                          const cStuck = streamCallRef.current;
+                          if (cStuck?.screenShare && typeof cStuck.screenShare.disable === "function") {
+                            void cStuck.screenShare.disable(true);
+                          }
+                        } catch {
+                          // ignore
+                        }
+                        shareInFlightRef.current = false;
+                        setBusy(false);
+                        setError("Screen share is taking too long. If a permission prompt is open, accept/deny it, then try again.");
+                      }, 65000);
+
+                      const localNow = (() => {
+                        try {
+                          return c?.state?.localParticipant ?? null;
+                        } catch {
+                          return null;
+                        }
+                      })();
+
+                      const isActuallySharingNow = Boolean(localNow && hasScreenShare(localNow));
+                      const wantsStop = Boolean(sharing || isActuallySharingNow);
+
+                      if (wantsStop) {
+                        setSharing(false);
+                        let lastErr: unknown = null;
+                        for (let attempt = 0; attempt < 3; attempt++) {
+                          try {
+                            if (typeof c.screenShare.disable === "function") {
+                              await withTimeout(c.screenShare.disable(true), 8000, "screenShare.disable");
+                            } else if (typeof c.screenShare.stop === "function") {
+                              await withTimeout(c.screenShare.stop(), 8000, "screenShare.stop");
+                            } else if (typeof c.screenShare.toggle === "function") {
+                              await withTimeout(c.screenShare.toggle(), 8000, "screenShare.toggle");
+                            } else {
+                              throw new Error("Screen share is not supported");
+                            }
+                            lastErr = null;
+                            break;
+                          } catch (e) {
+                            lastErr = e;
+                            if (!shouldRetry(e) || attempt === 2) break;
+                            await sleep(350 + attempt * 250);
+                          }
+                        }
+
+                        if (lastErr) throw lastErr;
+
+                        if (callType === "video" && c?.camera && typeof c.camera.enable === "function") {
+                          try {
+                            await sleep(250);
+                            await withTimeout(c.camera.enable(), 6000, "camera.enable");
+                          } catch {
+                            // ignore
+                          }
+                        }
+                      } else {
+                        let lastErr: unknown = null;
+                        for (let attempt = 0; attempt < 3; attempt++) {
+                          try {
+                            if (c?.camera && typeof c.camera.disable === "function") {
+                              try {
+                                await withTimeout(c.camera.disable(), 6000, "camera.disable");
+                                await sleep(750);
+                              } catch {
+                                // ignore
+                              }
+                            }
+
+                            if (typeof c.screenShare.enable === "function") {
+                              await withTimeout(c.screenShare.enable(), 60000, "screenShare.enable");
+                            } else if (typeof c.screenShare.start === "function") {
+                              await withTimeout(c.screenShare.start(), 60000, "screenShare.start");
+                            } else if (typeof c.screenShare.toggle === "function") {
+                              await withTimeout(c.screenShare.toggle(), 60000, "screenShare.toggle");
+                            } else {
+                              throw new Error("Screen share is not supported");
+                            }
+
+                            lastErr = null;
+                            break;
+                          } catch (e) {
+                            lastErr = e;
+                            if (!shouldRetry(e) || attempt === 2) break;
+                            await sleep(350 + attempt * 250);
+                          }
+                        }
+
+                        if (lastErr) throw lastErr;
+                      }
+
+                      await sleep(350);
+                      const localAfter = (() => {
+                        try {
+                          return c?.state?.localParticipant ?? null;
+                        } catch {
+                          return null;
+                        }
+                      })();
+                      setSharing(Boolean(localAfter && hasScreenShare(localAfter)));
+                    } catch (e) {
+                      setError(toErrorMessage(e));
+                      try {
+                        const c2 = streamCallRef.current;
+                        const lp = c2?.state?.localParticipant ?? null;
+                        setSharing(Boolean(lp && hasScreenShare(lp)));
+                      } catch {
+                        // ignore
+                      }
+                    } finally {
+                      try {
+                        if (watchdog) clearTimeout(watchdog);
+                      } catch {
+                        // ignore
+                      }
+                      setBusy(false);
+                      shareInFlightRef.current = false;
+                    }
+                  })();
+                } catch (e) {
+                  setError(toErrorMessage(e));
+                  shareInFlightRef.current = false;
                 }
               }}
               style={({ pressed }) => ({
@@ -570,8 +748,13 @@ export default function CallScreen(): JSX.Element {
                 borderRadius: 28,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: busy || shareUnsupported ? "rgba(255,255,255,0.06)" : pressed ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.12)",
-                opacity: busy || shareUnsupported ? 0.7 : 1,
+                backgroundColor:
+                  busy || shareUnsupported || shareInFlightRef.current
+                    ? "rgba(255,255,255,0.06)"
+                    : pressed
+                      ? "rgba(255,255,255,0.18)"
+                      : "rgba(255,255,255,0.12)",
+                opacity: busy || shareUnsupported || shareInFlightRef.current ? 0.7 : 1,
               })}
             >
               <Ionicons name={sharing ? "stop-circle" : "share-outline"} size={22} color="white" />
