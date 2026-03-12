@@ -58,7 +58,9 @@ export async function registerExpoPushToken(): Promise<string | null> {
     (Constants as any)?.easConfig?.projectId ||
     (Constants as any)?.expoConfig?.extra?.projectId;
 
-  const tokenRes = await Notifications.getExpoPushTokenAsync(projectId ? ({ projectId } as any) : undefined);
+  const tokenRes = await Notifications.getExpoPushTokenAsync(
+    projectId ? ({ projectId } as any) : undefined,
+  );
   const token = String((tokenRes as any)?.data ?? "").trim();
   if (!token) return null;
 
