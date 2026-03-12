@@ -15,6 +15,13 @@ type ExpoPushResponse = {
   errors?: unknown;
 };
 
+type ExpoTicket = {
+  status?: "ok" | "error";
+  id?: string;
+  message?: string;
+  details?: unknown;
+};
+
 function chunk<T>(items: T[], size: number): T[][] {
   if (size <= 0) return [items];
   const out: T[][] = [];
@@ -69,6 +76,18 @@ export async function sendExpoPush(
 
       if (json?.errors) {
         logger.warn("Expo push responded with errors", { errors: json.errors });
+      }
+
+      const tickets = Array.isArray((json as any)?.data) ? (((json as any).data as unknown[]) ?? []) : [];
+      for (let i = 0; i < tickets.length; i += 1) {
+        const t = tickets[i] as ExpoTicket;
+        if (String(t?.status ?? "") === "error") {
+          logger.warn("Expo push ticket error", {
+            token: batch[i],
+            message: t?.message,
+            details: t?.details,
+          });
+        }
       }
     } catch (error) {
       logger.warn("Expo push request error", {

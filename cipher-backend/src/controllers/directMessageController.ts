@@ -879,8 +879,10 @@ export async function createDirectMessageContent(
           channelId: "messages",
         });
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // eslint-disable-next-line no-console
+      console.log(JSON.stringify({ level: "warn", message: "Failed to send DM push", timestamp: new Date().toISOString(), meta: { error: msg } }));
     }
 
     res.status(201).json({ id: String(content._id), message: dto });

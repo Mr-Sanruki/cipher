@@ -157,8 +157,10 @@ export async function createMessage(
           channelId: "messages",
         });
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // eslint-disable-next-line no-console
+      console.log(JSON.stringify({ level: "warn", message: "Failed to send channel push", timestamp: new Date().toISOString(), meta: { error: msg } }));
     }
 
     res.status(201).json({ id: String(message._id), message: dto });
