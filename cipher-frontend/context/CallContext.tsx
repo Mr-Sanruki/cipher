@@ -1,9 +1,10 @@
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { NativeModules, Platform, Pressable, Text, View } from "react-native";
+import { NativeModules, Platform, Pressable, Text, View, Vibration, Animated, Easing } from "react-native";
 import { router } from "expo-router";
 import { Colors } from "../utils/colors";
 import { useAuth } from "../hooks/useAuth";
 import { useSocket } from "../hooks/useSocket";
+import { Ionicons } from "@expo/vector-icons";
 
 export type CallType = "voice" | "video";
 export type CallDirection = "incoming" | "outgoing";
@@ -40,6 +41,8 @@ export function CallProvider({ children }: { children: React.ReactNode }): JSX.E
 
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [status, setStatus] = useState<CallStatus>("idle");
+  const [callerInfo, setCallerInfo] = useState<{ name: string; avatar?: string } | null>(null);
+  const [pulseAnim] = useState(new Animated.Value(1));
 
   const activeRef = useRef<ActiveCall | null>(null);
   useEffect(() => {
@@ -56,6 +59,8 @@ export function CallProvider({ children }: { children: React.ReactNode }): JSX.E
   const clearCall = useCallback(() => {
     setActiveCall(null);
     setStatus("idle");
+    setCallerInfo(null);
+    Vibration.cancel();
   }, []);
 
   const startCall = useCallback(
@@ -126,14 +131,38 @@ export function CallProvider({ children }: { children: React.ReactNode }): JSX.E
   }, [socket, clearCall]);
 
   useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+    return () => {
+      pulseAnim.stopAnimation();
+    };
+  }, [pulseAnim]);
+
+  useEffect(() => {
     if (!socket || !myUserId) return;
 
-    const onIncoming = (payload: any) => {
+    const onIncoming = async (payload: any) => {
       const callId = String(payload?.callId ?? "");
       const dmId = String(payload?.dmId ?? "");
       const type = (payload?.type === "video" ? "video" : "voice") as CallType;
       const fromUserId = String(payload?.fromUserId ?? "");
       const toUserId = String(payload?.toUserId ?? "");
+      const callerName = String(payload?.callerName ?? "Unknown");
+      const callerAvatar = String(payload?.callerAvatar ?? "");
       if (!callId || !dmId || !fromUserId || !toUserId) return;
       if (toUserId !== myUserId) return;
 
@@ -147,8 +176,11 @@ export function CallProvider({ children }: { children: React.ReactNode }): JSX.E
         startedAt: nowIso(),
       };
 
+      setCallerInfo({ name: callerName, avatar: callerAvatar });
       setActiveCall(call);
       setStatus("ringing");
+
+      Vibration.vibrate([0, 500, 500, 500], true);
     };
 
     const onAccepted = (payload: any) => {
@@ -207,48 +239,79 @@ export function CallProvider({ children }: { children: React.ReactNode }): JSX.E
             top: 0,
             left: 0,
             right: 0,
-            paddingTop: 44,
-            paddingBottom: 10,
-            paddingHorizontal: 12,
-            backgroundColor: "#0b141a",
+            paddingTop: 60,
+            paddingBottom: 16,
+            paddingHorizontal: 16,
+            backgroundColor: "rgba(11, 20, 26, 0.98)",
             borderBottomWidth: 1,
-            borderBottomColor: "rgba(255,255,255,0.08)",
+            borderBottomColor: "rgba(37, 211, 102, 0.3)",
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
             zIndex: 9999,
+            shadowColor: "#25D366",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 12,
+            elevation: 10,
           }}
         >
-          <View style={{ flex: 1, paddingRight: 10 }}>
-            <Text style={{ color: Colors.dark.textSecondary, fontSize: 12 }} numberOfLines={1}>
-              Incoming {activeCall.type === "video" ? "video" : "voice"} call
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <View style={{
+              width: 52,
+              height: 52,
+              borderRadius: 26,
+              backgroundColor: "rgba(37, 211, 102, 0.2)",
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 2,
+              borderColor: "#25D366",
+            }}>
+              <Ionicons name={activeCall.type === "video" ? "videocam" : "call"} size={24} color="#25D366" />
+            </View>
+          </Animated.View>
+          <View style={{ flex: 1, paddingHorizontal: 14 }}>
+            <Text style={{ color: "#25D366", fontSize: 11, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" }}>
+              Incoming {activeCall.type} call
             </Text>
-            <Text style={{ color: Colors.dark.textPrimary, fontWeight: "800" }} numberOfLines={1}>
-              Tap to join
+            <Text style={{ color: "#fff", fontSize: 17, fontWeight: "800", marginTop: 2 }} numberOfLines={1}>
+              {callerInfo?.name || "Unknown Caller"}
             </Text>
           </View>
-          <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
             <Pressable
               onPress={rejectCall}
-              style={({ pressed }) => ({
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                borderRadius: 999,
+              style={({ pressed }: { pressed: boolean }) => ({
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                alignItems: "center",
+                justifyContent: "center",
                 backgroundColor: pressed ? "rgba(255,59,48,0.7)" : "rgba(255,59,48,1)",
+                shadowColor: "#FF3B30",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
               })}
             >
-              <Text style={{ color: "white", fontWeight: "800" }}>Decline</Text>
+              <Ionicons name="call" size={20} color="white" style={{ transform: [{ rotate: '135deg' }] }} />
             </Pressable>
             <Pressable
               onPress={acceptCall}
-              style={({ pressed }) => ({
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                borderRadius: 999,
-                backgroundColor: pressed ? "rgba(37,211,102,0.7)" : "rgba(37,211,102,1)",
+              style={({ pressed }: { pressed: boolean }) => ({
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: pressed ? "rgba(37,211,102,0.7)" : "#25D366",
+                shadowColor: "#25D366",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.4,
+                shadowRadius: 6,
               })}
             >
-              <Text style={{ color: "white", fontWeight: "800" }}>Join</Text>
+              <Ionicons name={activeCall.type === "video" ? "videocam" : "call"} size={22} color="white" />
             </Pressable>
           </View>
         </View>
@@ -256,3 +319,4 @@ export function CallProvider({ children }: { children: React.ReactNode }): JSX.E
     </CallContext.Provider>
   );
 }
+

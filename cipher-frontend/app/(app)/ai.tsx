@@ -9,6 +9,7 @@ import { PremiumScreen } from "../../components/PremiumScreen";
 import { FadeIn } from "../../components/FadeIn";
 import { Skeleton } from "../../components/Skeleton";
 import { TypingDots } from "../../components/TypingDots";
+import { VoiceCommandModal, SmartSuggestions } from "../../components/AiAutomation";
 import type { ChannelDto } from "../../types";
 import { aiChat, aiChatStream, type AiProvider } from "../../services/ai";
 import { listChannels } from "../../services/channels";
@@ -148,6 +149,8 @@ export default function AiScreen(): JSX.Element {
   const [pendingAttachments, setPendingAttachments] = useState<
     { key: string; uri: string; name: string; mimeType: string; kind: "image" | "document" }[]
   >([]);
+
+  const [voiceModalOpen, setVoiceModalOpen] = useState<boolean>(false);
 
   const restoreConversation = useCallback(async () => {
     try {
@@ -792,9 +795,20 @@ export default function AiScreen(): JSX.Element {
                 <>
                   <Pressable
                     onPress={() => {
+                      setVoiceModalOpen(true);
+                    }}
+                    style={({ pressed }: { pressed: boolean }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}
+                    accessibilityRole="button"
+                    accessibilityLabel="Voice command"
+                  >
+                    <Ionicons name="mic" size={20} color="#25D366" />
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
                       setSelectionMode(true);
                     }}
-                    style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}
+                    style={({ pressed }: { pressed: boolean }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}
                   >
                     <Ionicons name="checkmark-circle-outline" size={20} color="white" />
                   </Pressable>
@@ -811,7 +825,7 @@ export default function AiScreen(): JSX.Element {
                       }}
                       accessibilityRole="button"
                       accessibilityLabel="Share to channel"
-                      style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}
+                      style={({ pressed }: { pressed: boolean }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}
                     >
                       <Ionicons name="share-outline" size={20} color="white" />
                     </Pressable>
@@ -1370,7 +1384,7 @@ export default function AiScreen(): JSX.Element {
             </View>
           ) : (
             <ScrollView className="mt-4" style={{ maxHeight: 260 }}>
-              {shareChannels.map((c) => (
+              {shareChannels.map((c: ChannelDto) => (
                 <Pressable
                   key={c._id}
                   onPress={() => {
@@ -1395,6 +1409,47 @@ export default function AiScreen(): JSX.Element {
             </ScrollView>
           )}
         </PremiumModal>
+
+        {/* Voice Command Modal */}
+        <VoiceCommandModal
+          visible={voiceModalOpen}
+          onClose={() => setVoiceModalOpen(false)}
+          onCommandProcessed={(result) => {
+            // Handle the voice command result
+            if (result.intent === "create_task") {
+              // Navigate to tasks or create task
+              router.push("/(app)/productivity/tasks");
+            } else if (result.intent === "schedule_call") {
+              // Navigate to chat for calling
+              router.push("/(app)/chat");
+            } else if (result.intent === "send_message") {
+              // Navigate to chat
+              router.push("/(app)/chat");
+            } else if (result.intent === "set_reminder") {
+              // Could integrate with calendar
+              router.push("/(app)/productivity/calendar");
+            }
+          }}
+        />
+
+        {/* Smart Suggestions Section */}
+        {messages.length === 0 && !busy && (
+          <SmartSuggestions
+            onSuggestionPress={(suggestion) => {
+              if (suggestion.type === "task") {
+                router.push("/(app)/productivity/tasks");
+              } else if (suggestion.type === "habit") {
+                router.push("/(app)/productivity/habit-tracker");
+              } else if (suggestion.type === "calendar") {
+                router.push("/(app)/productivity/calendar");
+              } else if (suggestion.type === "message") {
+                router.push("/(app)/chat");
+              } else if (suggestion.type === "call") {
+                router.push("/(app)/chat");
+              }
+            }}
+          />
+        )}
       </KeyboardAvoidingView>
     </PremiumScreen>
   );

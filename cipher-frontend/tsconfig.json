@@ -1,16 +1,21 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
     "jsx": "react-jsx",
     "module": "ESNext",
+    "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"]
   },
   "include": [
     "app/**/*.ts",
@@ -25,7 +30,8 @@
     "services/**/*.tsx",
     "types/**/*.ts",
     "utils/**/*.ts",
-    "nativewind-env.d.ts"
+    "nativewind-env.d.ts",
+    "**/*.d.ts"
   ],
   "exclude": [
     "**/node_modules/**",

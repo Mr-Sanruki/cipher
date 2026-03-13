@@ -7,6 +7,7 @@ import { Colors } from "../../utils/colors";
 import { SocketProvider } from "../../context/SocketContext";
 import { StreamChatProvider } from "../../context/StreamChatContext";
 import { CallProvider } from "../../context/CallContext";
+import { AiAutomationProvider } from "../../context/AiAutomationContext";
 
 function PremiumTabIcon({ name, focused, color, size }: { name: any; focused: boolean; color: string; size?: number }): JSX.Element {
   return (
@@ -74,70 +75,72 @@ export default function AppLayout(): JSX.Element {
     <SocketProvider>
       <CallProvider>
         <StreamChatProvider>
-          <Tabs
-            screenOptions={{
-              headerShown: false,
-              tabBarActiveTintColor: "white",
-              tabBarInactiveTintColor: "rgba(255,255,255,0.65)",
-              tabBarHideOnKeyboard: true,
-              tabBarStyle: hideTabBar
-                ? { display: "none" }
-                : {
-                    backgroundColor: "rgba(14,16,24,0.92)",
-                    borderTopColor: "rgba(255,255,255,0.08)",
-                    borderTopWidth: 1,
-                    height: 56 + Math.max(insets.bottom, 8),
-                    paddingTop: 6,
-                    paddingBottom: Math.max(insets.bottom, 8),
-                  },
-              tabBarLabelStyle: { fontSize: 11, marginTop: 2 },
-              tabBarIconStyle: { marginTop: 2 },
-              tabBarButton: (props) => <AnimatedTabBarButton {...props} />,
-            }}
-          >
-            <Tabs.Screen
-              name="chat"
-              options={{
-                title: "Chat",
-                tabBarIcon: ({ focused, color, size }) => <PremiumTabIcon name="chatbubbles" focused={focused} color={color} size={size} />,
+          <AiAutomationProvider>
+            <Tabs
+              screenOptions={{
+                headerShown: false,
+                tabBarActiveTintColor: "white",
+                tabBarInactiveTintColor: "rgba(255,255,255,0.65)",
+                tabBarHideOnKeyboard: true,
+                tabBarStyle: hideTabBar
+                  ? { display: "none" }
+                  : {
+                      backgroundColor: "rgba(14,16,24,0.92)",
+                      borderTopColor: "rgba(255,255,255,0.08)",
+                      borderTopWidth: 1,
+                      height: 56 + Math.max(insets.bottom, 8),
+                      paddingTop: 6,
+                      paddingBottom: Math.max(insets.bottom, 8),
+                    },
+                tabBarLabelStyle: { fontSize: 11, marginTop: 2 },
+                tabBarIconStyle: { marginTop: 2 },
+                tabBarButton: (props) => <AnimatedTabBarButton {...props} />,
               }}
-            />
-            <Tabs.Screen
-              name="productivity"
-              options={{
-                title: "Productivity",
-                tabBarIcon: ({ focused, color, size }) => <PremiumTabIcon name="apps" focused={focused} color={color} size={size} />,
-              }}
-            />
-            <Tabs.Screen
-              name="workspace"
-              options={{
-                title: "Workspace",
-                tabBarIcon: ({ focused, color, size }) => <PremiumTabIcon name="briefcase" focused={focused} color={color} size={size} />,
-              }}
-            />
-            <Tabs.Screen
-              name="ai"
-              options={{
-                title: "AI",
-                tabBarIcon: ({ focused, color, size }) => <PremiumTabIcon name="sparkles" focused={focused} color={color} size={size} />,
-              }}
-            />
-            <Tabs.Screen
-              name="settings"
-              options={{
-                title: "Settings",
-                tabBarIcon: ({ focused, color, size }) => <PremiumTabIcon name="settings" focused={focused} color={color} size={size} />,
-              }}
-            />
+            >
+              <Tabs.Screen
+                name="chat"
+                options={{
+                  title: "Chat",
+                  tabBarIcon: ({ focused, color, size }) => <PremiumTabIcon name="chatbubbles" focused={focused} color={color} size={size} />,
+                }}
+              />
+              <Tabs.Screen
+                name="productivity"
+                options={{
+                  title: "Productivity",
+                  tabBarIcon: ({ focused, color, size }) => <PremiumTabIcon name="apps" focused={focused} color={color} size={size} />,
+                }}
+              />
+              <Tabs.Screen
+                name="workspace"
+                options={{
+                  title: "Workspace",
+                  tabBarIcon: ({ focused, color, size }) => <PremiumTabIcon name="briefcase" focused={focused} color={color} size={size} />,
+                }}
+              />
+              <Tabs.Screen
+                name="ai"
+                options={{
+                  title: "AI",
+                  tabBarIcon: ({ focused, color, size }) => <PremiumTabIcon name="sparkles" focused={focused} color={color} size={size} />,
+                }}
+              />
+              <Tabs.Screen
+                name="settings"
+                options={{
+                  title: "Settings",
+                  tabBarIcon: ({ focused, color, size }) => <PremiumTabIcon name="settings" focused={focused} color={color} size={size} />,
+                }}
+              />
 
-            <Tabs.Screen
-              name="call/[callId]"
-              options={{
-                href: null,
-              }}
-            />
-          </Tabs>
+              <Tabs.Screen
+                name="call/[callId]"
+                options={{
+                  href: null,
+                }}
+              />
+            </Tabs>
+          </AiAutomationProvider>
         </StreamChatProvider>
       </CallProvider>
     </SocketProvider>
