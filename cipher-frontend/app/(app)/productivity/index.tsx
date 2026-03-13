@@ -1,110 +1,151 @@
-import React, { useMemo, useState } from "react";
-import { FlatList, Pressable, Text, View, useWindowDimensions, ScrollView, Animated } from "react-native";
+import React, { useMemo } from "react";
+
+import { FlatList, Pressable, Text, View, useWindowDimensions } from "react-native";
+
 import { router } from "expo-router";
+
 import { Ionicons } from "@expo/vector-icons";
+
 import { Colors } from "../../../utils/colors";
+
 import { PremiumScreen } from "../../../components/PremiumScreen";
+
 import { FadeIn } from "../../../components/FadeIn";
-import { SmartSuggestions } from "../../../components/AiAutomation";
+
+
 
 type Card = {
+
   key: string;
+
   title: string;
+
   subtitle: string;
+
   icon: keyof typeof Ionicons.glyphMap;
+
   href: string;
-  color: string;
-  aiFeature?: boolean;
+
 };
 
-export default function ProductivityHome(): JSX.Element {
+
+
+export default function ProductivityHome() {
+
   const { width: screenW } = useWindowDimensions();
+
   const gutter = 12;
+
   const horizontalPadding = 16;
+
   const cardW = useMemo(() => {
+
     const w = Math.floor((screenW - horizontalPadding * 2 - gutter) / 2);
+
     return Math.max(140, w);
+
   }, [screenW]);
 
+
+
   const cards = useMemo<Card[]>(
+
     () => [
+
       {
+
         key: "tasks",
+
         title: "Tasks",
-        subtitle: "AI-powered task management",
+
+        subtitle: "To-do list, priorities, reorder",
+
         icon: "checkbox",
+
         href: "/(app)/productivity/tasks",
-        color: "#25D366",
-        aiFeature: true,
+
       },
+
       {
-        key: "habits",
-        title: "Habits",
-        subtitle: "Build habits with AI insights",
-        icon: "repeat",
-        href: "/(app)/productivity/habit-tracker",
-        color: "#34B7F1",
-        aiFeature: true,
-      },
-      {
-        key: "calendar",
-        title: "Calendar",
-        subtitle: "Smart scheduling with AI",
-        icon: "calendar",
-        href: "/(app)/productivity/calendar",
-        color: "#FFD700",
-        aiFeature: true,
-      },
-      {
-        key: "focus-timer",
-        title: "Focus Timer",
-        subtitle: "Pomodoro + AI productivity",
-        icon: "timer",
-        href: "/(app)/productivity/focus-timer",
-        color: "#FF6B6B",
-        aiFeature: false,
-      },
-      {
-        key: "dashboard",
-        title: "Dashboard",
-        subtitle: "Analytics & insights",
-        icon: "speedometer",
-        href: "/(app)/productivity/dashboard",
-        color: "#9B59B6",
-        aiFeature: false,
-      },
-      {
-        key: "quick-notes",
-        title: "Quick Notes",
-        subtitle: "Notes with AI summarization",
-        icon: "document-text",
-        href: "/(app)/productivity/quick-notes",
-        color: "#E67E22",
-        aiFeature: true,
-      },
-      {
+
         key: "email",
+
         title: "Email",
-        subtitle: "Smart email composer",
+
+        subtitle: "Pick members, compose, send",
+
         icon: "mail",
+
         href: "/(app)/productivity/email",
-        color: "#1ABC9C",
-        aiFeature: true,
+
       },
+
       {
-        key: "compiler",
-        title: "Code Runner",
-        subtitle: "Execute code snippets",
-        icon: "code-slash",
-        href: "/(app)/productivity/compiler",
-        color: "#34495E",
-        aiFeature: false,
+
+        key: "calendar",
+
+        title: "Calendar",
+
+        subtitle: "Plan your day + drag & drop",
+
+        icon: "calendar",
+
+        href: "/(app)/productivity/calendar",
+
       },
+
+      {
+
+        key: "dashboard",
+
+        title: "Dashboard",
+
+        subtitle: "Today’s stats + quick actions",
+
+        icon: "speedometer",
+
+        href: "/(app)/productivity/dashboard",
+
+      },
+
+      {
+
+        key: "focus-timer",
+
+        title: "Focus Timer",
+
+        subtitle: "Pomodoro 25/5 + charts",
+
+        icon: "timer",
+
+        href: "/(app)/productivity/focus-timer",
+
+      },
+
+      {
+
+        key: "quick-notes",
+
+        title: "Quick Notes",
+
+        subtitle: "Notes + search + tags",
+
+        icon: "document-text",
+
+        href: "/(app)/productivity/quick-notes",
+
+      },
+
     ],
+
     []
+
   );
 
+
+
   return (
+
     <PremiumScreen padded={false} topPadding={0}>
 
       <View style={{ paddingTop: 56, paddingHorizontal: 16, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -115,7 +156,7 @@ export default function ProductivityHome(): JSX.Element {
 
           onPress={() => router.push("/(app)/chat")}
 
-          style={({ pressed }) => ({ padding: 10, opacity: pressed ? 0.7 : 1 })}
+          style={({ pressed }: { pressed: boolean }) => ({ padding: 10, opacity: pressed ? 0.7 : 1 })}
 
         >
 
@@ -139,7 +180,7 @@ export default function ProductivityHome(): JSX.Element {
 
         data={cards}
 
-        keyExtractor={(c) => c.key}
+        keyExtractor={(c: Card) => c.key}
 
         numColumns={2}
 
@@ -147,7 +188,7 @@ export default function ProductivityHome(): JSX.Element {
 
         columnWrapperStyle={{ gap: 12, marginBottom: 12 }}
 
-        renderItem={({ item: c }) => (
+        renderItem={({ item: c }: { item: Card }) => (
 
           <FadeIn>
 
@@ -155,7 +196,7 @@ export default function ProductivityHome(): JSX.Element {
 
               onPress={() => router.push(c.href as any)}
 
-              style={({ pressed }) => ({
+              style={({ pressed }: { pressed: boolean }) => ({
 
                 width: cardW,
 
