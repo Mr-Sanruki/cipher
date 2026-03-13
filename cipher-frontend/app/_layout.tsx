@@ -7,6 +7,7 @@ import { AuthProvider } from "../context/AuthContext";
 import { useAuth } from "../hooks/useAuth";
 import * as Notifications from "expo-notifications";
 import { parsePushRoute, registerExpoPushToken } from "../services/pushNotifications";
+import { useSocket } from "../hooks/useSocket";
 
 NativeWindStyleSheet.setOutput({ web: "native", default: "native" });
 
@@ -71,6 +72,7 @@ export default function RootLayout(): JSX.Element {
 
 function RootLayoutNav(): JSX.Element {
   const { status, token } = useAuth();
+  const { socket } = useSocket();
   const segments = useSegments();
   const notifSubRef = useRef<Notifications.Subscription | null>(null);
   const notifResponseSubRef = useRef<Notifications.Subscription | null>(null);
@@ -106,8 +108,21 @@ function RootLayoutNav(): JSX.Element {
 
     notifResponseSubRef.current = Notifications.addNotificationResponseReceivedListener((response) => {
       try {
+        const actionId = String((response as any)?.actionIdentifier ?? "");
         const data = (response as any)?.notification?.request?.content?.data;
         const route = parsePushRoute(data);
+
+        if (route.kind === "call" && actionId === "DECLINE_CALL") {
+          try {
+            socket?.emit?.("call-reject", { callId: route.callId }, () => {
+              // ignore
+            });
+          } catch {
+            // ignore
+          }
+          return;
+        }
+
         if (route.kind === "dm") {
           router.push(`/(app)/chat/dm/${route.dmId}` as any);
         } else if (route.kind === "channel") {
@@ -136,7 +151,7 @@ function RootLayoutNav(): JSX.Element {
       notifResponseSubRef.current?.remove();
       notifResponseSubRef.current = null;
     };
-  }, [status]);
+  }, [socket, status]);
 
   return (
     <>

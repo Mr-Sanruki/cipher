@@ -8,6 +8,7 @@ type ExpoPushMessage = {
   sound?: "default" | null;
   priority?: "default" | "normal" | "high";
   channelId?: string;
+  categoryId?: string;
 };
 
 type ExpoPushResponse = {
@@ -51,6 +52,7 @@ export async function sendExpoPush(
       sound: message.sound ?? "default",
       priority: message.priority ?? "high",
       channelId: message.channelId ?? "default",
+      categoryId: message.categoryId,
     }));
 
     try {

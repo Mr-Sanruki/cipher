@@ -35,3 +35,11 @@
 **/ios/build/
 **/ios/*.xcworkspace
 **/ios/*.xcodeproj/project.xcworkspace/
+generate_full_source_report.py
+generate_reports.py
+update_report3_add_source_code.py
+report-docs/generate_report1.ps1
+report-docs/generate_report2.ps1
+report-docs/Project_Report_2_Completed.md
+report-docs/Project_Report_1_Completed.md
+.gitignore

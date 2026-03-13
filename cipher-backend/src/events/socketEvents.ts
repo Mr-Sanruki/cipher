@@ -126,6 +126,7 @@ export function registerSocketEvents(io: SocketIOServer): void {
             body,
             data: { kind: "call", callId, dmId, type, fromUserId: userId, toUserId },
             channelId: "calls",
+            categoryId: "calls",
             priority: "high",
           });
         } catch {

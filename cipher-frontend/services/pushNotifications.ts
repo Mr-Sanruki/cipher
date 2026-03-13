@@ -7,6 +7,8 @@ import { getItem, setItem } from "./storage";
 const TOKEN_KEY = "cipher.expoPushToken";
 let configured = false;
 
+const CALL_CATEGORY_ID = "calls";
+
 export async function configureNotifications(): Promise<void> {
   if (configured) return;
   configured = true;
@@ -41,6 +43,23 @@ export async function configureNotifications(): Promise<void> {
       importance: Notifications.AndroidImportance.DEFAULT,
       sound: "default",
     });
+  }
+
+  try {
+    await Notifications.setNotificationCategoryAsync(CALL_CATEGORY_ID, [
+      {
+        identifier: "ANSWER_CALL",
+        buttonTitle: "Answer",
+        options: { opensAppToForeground: true },
+      },
+      {
+        identifier: "DECLINE_CALL",
+        buttonTitle: "Decline",
+        options: { opensAppToForeground: true, isDestructive: true },
+      },
+    ]);
+  } catch {
+    // ignore
   }
 }
 
